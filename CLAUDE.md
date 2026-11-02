@@ -27,6 +27,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - Anything that has to be atomic goes through `withTransaction` (`server/src/db.js`), for example `recordDecision` in `server/src/lib/matching.js`.
 - The JSON the API returns is camelCase; database columns are snake_case.
 - UI: inline stroke SVG icons (`components/Icon.jsx`), no emoji, initials-on-pastel avatars, touch targets of at least 44px.
+- Loading states come from `components/Loading.jsx`: `Skeleton` rows built from the real rows' classes where the layout is known, otherwise `Loader` (spinner and label). Mark the loading area `aria-busy="true"` and pair skeletons with a `LoadingStatus` (`role="status"`). The global `prefers-reduced-motion` rule in `styles.css` stops every animation.
 - Layout: below 1024px wide it's the phone layout (430px column, bottom tab bar). At 1024px and up, `App.jsx` (`useMediaQuery`) switches to the desktop layout: a sidebar (`SideNav`), Messages as list + chat panes, Find card side by side, and Profile in two columns. All desktop CSS lives in the `min-width: 1024px` blocks at the end of `styles.css`. Keep phone styles outside those blocks.
 - Schema changes go in `db/schema.sql` (and the ERD files), never only by hand in the Supabase dashboard.
 

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
-import Avatar, { GroupPair } from '../components/Avatar.jsx';
+import Avatar, { GroupPair, GroupPairSkeleton } from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
+import { LoadingStatus, Skeleton } from '../components/Loading.jsx';
 import { useToast } from '../components/ui.jsx';
 import { formatTime, plural } from '../format.js';
 import { usePoll } from '../usePoll.js';
@@ -9,6 +10,14 @@ import { usePoll } from '../usePoll.js';
 const POLL_MS = 5000;
 const NEAR_BOTTOM_PX = 120;
 const CHAT_GONE = ['NOT_IN_CHAT', 'CHAT_NOT_FOUND'];
+// Placeholder messages while a chat opens: theirs (with the sender's avatar on the first of a run) and yours.
+const BUBBLE_PLACEHOLDERS = [
+  { width: 180, avatar: true },
+  { width: 120 },
+  { width: 160, mine: true },
+  { width: 200, avatar: true },
+  { width: 110, mine: true },
+];
 
 const newestId = (messages) => messages.reduce((max, m) => Math.max(max, m.id), 0);
 
@@ -134,17 +143,13 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
       </div>
     );
   }
-  if (!data) return <div className="loading">Opening chat…</div>;
+  if (!data) return <ChatSkeleton embedded={embedded} />;
 
   const { chat, messages, participants } = data;
   return (
     <div className={`chat-screen ${embedded ? 'chat-screen--embedded' : ''}`}>
       <header className="chat-head">
-        {!embedded && (
-          <a href="#/messages" className="icon-btn icon-btn--plain" aria-label="Back to Messages">
-            <Icon name="chevronLeft" size={26} />
-          </a>
-        )}
+        {!embedded && <BackButton />}
         <GroupPair mine={chat.myGroup} other={chat.otherGroup} size={36} />
         <div>
           <div className="chat-head__name">{chat.name}</div>
@@ -199,6 +204,42 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
           <Icon name="send" />
         </button>
       </form>
+    </div>
+  );
+}
+
+function BackButton() {
+  return (
+    <a href="#/messages" className="icon-btn icon-btn--plain" aria-label="Back to Messages">
+      <Icon name="chevronLeft" size={26} />
+    </a>
+  );
+}
+
+function ChatSkeleton({ embedded }) {
+  return (
+    <div className={`chat-screen ${embedded ? 'chat-screen--embedded' : ''}`}>
+      <header className="chat-head">
+        {!embedded && <BackButton />}
+        <GroupPairSkeleton size={36} />
+        <div>
+          <Skeleton text={17} width={150} />
+          <Skeleton text={14} width={70} />
+        </div>
+      </header>
+      <div className="chat-body" aria-busy="true">
+        {BUBBLE_PLACEHOLDERS.map((b, i) => (
+          <div key={i} className={`msg ${b.mine ? 'msg--mine' : ''}`}>
+            {!b.mine && (b.avatar ? <Skeleton width={36} height={36} radius="50%" /> : <span className="msg__spacer" />)}
+            <Skeleton width={b.width} height={42} radius={b.mine ? '20px 20px 6px 20px' : '20px 20px 20px 6px'} />
+          </div>
+        ))}
+      </div>
+      <div className="composer">
+        <Skeleton height={48} radius={999} className="skeleton--grow" />
+        <Skeleton width={48} height={48} radius="50%" />
+      </div>
+      <LoadingStatus label="Opening chat…" />
     </div>
   );
 }

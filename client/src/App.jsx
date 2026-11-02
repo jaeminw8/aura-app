@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, readStoredUserId, setApiUser, storeUserId } from './api.js';
+import { Loader } from './components/Loading.jsx';
 import SignedInBar from './components/SignedInBar.jsx';
 import TabBar, { SideNav } from './components/TabBar.jsx';
 import { useToast } from './components/ui.jsx';
@@ -119,7 +120,7 @@ export default function App() {
         </div>
       </div>
     ) : (
-      <div className="loading">Loading…</div>
+      <Loader label="Loading…" />
     );
   } else if (!me.onboarding.profileComplete) {
     content = <ProfileSetup me={me} setMe={setMe} refreshMe={refreshMe} />;

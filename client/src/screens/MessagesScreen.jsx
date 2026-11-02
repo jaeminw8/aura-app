@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
-import Avatar, { GroupPair } from '../components/Avatar.jsx';
+import Avatar, { GroupPair, GroupPairSkeleton } from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
+import { LoadingStatus, Skeleton, Spinner } from '../components/Loading.jsx';
 import { useToast } from '../components/ui.jsx';
 import ChatScreen from './ChatScreen.jsx';
 import { formatChatTime, plural } from '../format.js';
@@ -9,6 +10,12 @@ import { usePoll } from '../usePoll.js';
 
 const VIEW_TITLES = { archived: 'Archived', deleted: 'Recently deleted' };
 const POLL_MS = 5000;
+// Name and preview widths of the chat list's placeholder rows.
+const CHAT_PLACEHOLDERS = [['60%', '85%'], ['45%', '70%'], ['68%', '78%']];
+// How many requests each group had when Messages last loaded, so the likes box's placeholder
+// has that many rows (and stays hidden at 0). Until the first load it shows one.
+const likeCounts = new Map();
+const likesTitle = (count, groupName) => `${plural(count, 'group')} ${count === 1 ? 'wants' : 'want'} to meet ${groupName}`;
 
 export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop = false, chatId = null }) {
   const toast = useToast();
@@ -18,7 +25,7 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
   const [likes, setLikes] = useState(null);
   const [chats, setChats] = useState(null);
   const [error, setError] = useState(null);
-  const [pendingLikeId, setPendingLikeId] = useState(null);
+  const [pending, setPending] = useState(null); // { id, action } while a request is being answered
   const [selected, setSelected] = useState(() => new Set());
   const [newChatId, setNewChatId] = useState(null);
   const listVersion = useRef(0); // bumped by changes made here, so an in-flight refresh can't undo them
@@ -43,6 +50,10 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
     setSelected(new Set());
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (likes) likeCounts.set(groupId, likes.length);
+  }, [likes, groupId]);
 
   // Polled (and called by the desktop chat pane after reads/sends) so new messages re-sort the
   // list and update previews and unread counts. The server already sorts by newest activity.
@@ -70,7 +81,7 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
 
   // The vertical slice: accept -> server creates match + chat -> we update the lists in place.
   const accept = async (like) => {
-    setPendingLikeId(like.id);
+    setPending({ id: like.id, action: 'accept' });
     try {
       const { chat } = await api(`/likes/${like.id}/accept`, { method: 'POST' });
       setLikes((ls) => ls.filter((l) => l.id !== like.id));
@@ -83,12 +94,12 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
       toast(err.message, { tone: 'error' });
       if (['ALREADY_MATCHED', 'ALREADY_DECIDED', 'LIKE_NOT_FOUND'].includes(err.code)) load();
     } finally {
-      setPendingLikeId(null);
+      setPending(null);
     }
   };
 
   const decline = async (like) => {
-    setPendingLikeId(like.id);
+    setPending({ id: like.id, action: 'decline' });
     try {
       await api(`/likes/${like.id}/decline`, { method: 'POST' });
       setLikes((ls) => ls.filter((l) => l.id !== like.id));
@@ -96,10 +107,12 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
     } catch (err) {
       toast(err.message, { tone: 'error' });
     } finally {
-      setPendingLikeId(null);
+      setPending(null);
     }
   };
 
+  const loading = !chats && !error;
+  const likePlaceholders = likeCounts.get(groupId) ?? 1;
   const selecting = selected.size > 0;
   const allSelected = chats?.length > 0 && selected.size === chats.length;
   const toggle = (id) => setSelected((s) => {
@@ -157,30 +170,39 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
         </div>
       )}
 
+      {view === 'inbox' && !likes && !error && likePlaceholders > 0 && (
+        <LikesSkeleton rows={likePlaceholders} title={likesTitle(likePlaceholders, activeGroup?.name)} />
+      )}
       {view === 'inbox' && likes?.length > 0 && (
         <section className="likes-box" aria-label="Groups that liked you">
-          <h2 className="likes-box__title">
-            {plural(likes.length, 'group')} {likes.length === 1 ? 'wants' : 'want'} to meet {activeGroup?.name}
-          </h2>
+          <h2 className="likes-box__title">{likesTitle(likes.length, activeGroup?.name)}</h2>
           {likes.map((like) => {
             const g = like.group;
             const extra = g.stats?.mutualFriends
               ? plural(g.stats.mutualFriends, 'mutual friend')
               : plural(g.stats?.sharedInterestCount ?? 0, 'shared interest');
-            const pending = pendingLikeId === like.id;
+            const busy = pending?.id === like.id;
+            const accepting = busy && pending.action === 'accept';
             return (
-              <div key={like.id} className="like-row" style={{ opacity: pending ? 0.6 : 1 }}>
+              <div key={like.id} className="like-row" style={{ opacity: busy ? 0.6 : 1 }} aria-busy={busy || undefined}>
                 <Avatar initials={g.initials} color={g.avatarColor} size={48} shape="square" />
                 <div className="like-row__info">
                   <div className="like-row__name">{g.name}</div>
                   <div className="like-row__meta">{plural(g.memberCount, 'member')} · {extra}</div>
                 </div>
                 <div className="like-row__actions">
-                  <button type="button" className="icon-btn icon-btn--square" aria-label={`Decline ${g.name}`} disabled={pending} onClick={() => decline(like)}>
-                    <Icon name="x" />
+                  <button type="button" className="icon-btn icon-btn--square" aria-label={`Decline ${g.name}`} disabled={busy} onClick={() => decline(like)}>
+                    {busy && !accepting ? <Spinner size={20} /> : <Icon name="x" />}
                   </button>
-                  <button type="button" className="btn btn--primary btn--sm" disabled={pending} onClick={() => accept(like)}>
-                    {pending ? '…' : 'Accept'}
+                  <button
+                    type="button"
+                    className={`btn btn--primary btn--sm ${accepting ? 'btn--busy' : ''}`}
+                    aria-label={`Accept ${g.name}`}
+                    disabled={busy}
+                    onClick={() => accept(like)}
+                  >
+                    <span className="btn__label">Accept</span>
+                    {accepting && <Spinner size={18} />}
                   </button>
                 </div>
               </div>
@@ -237,7 +259,12 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
         )}
       </div>
 
-      {!chats && !error && <div className="loading">Loading chats…</div>}
+      {loading && (
+        <>
+          <ChatListSkeleton />
+          <LoadingStatus label={view === 'inbox' ? 'Loading chats…' : `Loading ${VIEW_TITLES[view].toLowerCase()} chats…`} />
+        </>
+      )}
       {chats?.length === 0 && (
         <div className="empty">
           <span className="empty__icon"><Icon name="messages" size={30} /></span>
@@ -319,5 +346,50 @@ function ChatRow({ chat, isNew, isOpen, selecting, selected, onToggle }) {
         <span className="chat-row__people" style={{ display: 'block' }}>{plural(chat.peopleCount, 'person', 'people')}</span>
       </span>
     </button>
+  );
+}
+
+// The title placeholder is the likely title in invisible text, so it wraps onto as many lines as the real one.
+function LikesSkeleton({ rows, title }) {
+  return (
+    <section className="likes-box" aria-label="Groups that liked you" aria-busy="true">
+      <div className="likes-box__title" aria-hidden="true">
+        <span className="skeleton skeleton--words">{title}</span>
+      </div>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="like-row">
+          <Skeleton width={48} height={48} radius={14} />
+          <div className="like-row__info">
+            <Skeleton text={16} width={i % 2 ? '50%' : '65%'} />
+            <Skeleton text={14} width="90%" />
+            <Skeleton text={14} width={i % 2 ? '55%' : '40%'} />
+          </div>
+          <div className="like-row__actions">
+            <Skeleton width={44} height={44} radius={14} />
+            <Skeleton width={80} height={44} radius={14} />
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function ChatListSkeleton() {
+  return (
+    <div className="chat-list" aria-busy="true">
+      {CHAT_PLACEHOLDERS.map(([name, preview], i) => (
+        <div key={i} className="chat-row chat-row--skeleton">
+          <GroupPairSkeleton size={46} />
+          <span className="chat-row__main">
+            <span className="chat-row__top">
+              <Skeleton text={17} width={name} />
+              <Skeleton text={14} width={36} />
+            </span>
+            <Skeleton text={16} width={preview} />
+            <Skeleton text={14} width={70} />
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }

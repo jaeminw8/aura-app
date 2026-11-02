@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import GroupCard from '../components/GroupCard.jsx';
 import GroupSwitcher from '../components/GroupSwitcher.jsx';
 import Icon from '../components/Icon.jsx';
+import { Loader } from '../components/Loading.jsx';
 import { useToast } from '../components/ui.jsx';
 import { plural } from '../format.js';
 
@@ -74,7 +75,7 @@ export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = f
           <button type="button" className="btn btn--primary" onClick={load}>Try again</button>
         </div>
       )}
-      {!data && !error && <div className="loading">Finding groups for {activeName}…</div>}
+      {!data && !error && <Loader label={`Finding groups for ${activeName}…`} />}
 
       {data && (
         <>

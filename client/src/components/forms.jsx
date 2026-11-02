@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { GENDERS, RELATIONSHIP_LABELS, TRAIT_SUGGESTIONS } from '../format.js';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
+import { Loader } from './Loading.jsx';
 import { Field, FormError, useAsyncAction } from './ui.jsx';
 
 // Profile fields (no photos/interests): used by Edit profile and onboarding.
@@ -239,7 +240,7 @@ export function InviteFriends({ group, onChanged }) {
       </div>
       <h3 className="section-label">Or add a friend directly · {group.memberCount} of 10</h3>
       <FormError error={error} />
-      {friends === null && <p className="muted-small">Loading friends…</p>}
+      {friends === null && <Loader label="Loading friends…" compact />}
       {friends?.length === 0 && <p className="muted-small">No friends yet.</p>}
       {friends?.map((f) => {
         const inGroup = f.groupIds.includes(group.id);

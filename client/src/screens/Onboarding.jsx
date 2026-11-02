@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import Avatar from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
 import { AddInterestForm, CreateOrJoinForm, ProfileFields, profileFormValue, profilePatch } from '../components/forms.jsx';
+import { Loader } from '../components/Loading.jsx';
 import { Field, FormError, useAsyncAction } from '../components/ui.jsx';
 
 // Step 0: no one is "signed in" yet. Pick a seeded user or sign up.
@@ -27,7 +28,7 @@ export function Welcome({ onSignedIn }) {
       <section className="card">
         <h2 className="card__title">Signed in as…</h2>
         <p className="muted-small" style={{ marginTop: -6 }}>Prototype: pick a sample user (no password).</p>
-        {users === null && <p className="muted-small">Loading…</p>}
+        {users === null && <Loader label="Loading users…" compact />}
         {users?.map((u) => (
           <button key={u.id} type="button" className="user-pick" onClick={() => onSignedIn(u.id)}>
             <Avatar initials={u.initials} color={u.avatarColor} size={40} />
