@@ -23,6 +23,9 @@ const PG_ERRORS = {
   23502: [400, 'VALIDATION_ERROR', 'A required value is missing.'],
   '22P02': [400, 'VALIDATION_ERROR', 'A value has the wrong format.'],
   '22001': [400, 'VALIDATION_ERROR', 'A value is too long.'],
+  // Text Postgres can't store, such as \u0000 pasted into a bio. Without this it's a 500.
+  '22021': [400, 'VALIDATION_ERROR', "A value contains characters that can't be saved."],
+  '22P05': [400, 'VALIDATION_ERROR', "A value contains characters that can't be saved."],
 };
 
 // eslint-disable-next-line no-unused-vars

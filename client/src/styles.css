@@ -584,6 +584,18 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
 }
 .composer .icon-btn { background: var(--accent); color: #fff; }
 .composer .icon-btn:disabled { opacity: 0.5; }
+.composer input[aria-invalid='true'] { border-color: var(--danger); }
+/* Why a message didn't send, right above the message box (same colors as .form-error) */
+.composer-error {
+  margin: 0;
+  padding: 10px 16px;
+  background: #fdeceb;
+  border-top: 1px solid #f2c9c6;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
 
 /* ---------- Profile ---------- */
 .profile-top { display: flex; gap: 16px; align-items: center; }
@@ -925,6 +937,7 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
   .chat-screen--embedded .chat-body { padding: 20px 32px; }
   .chat-screen--embedded .msg { max-width: min(70%, 640px); }
   .chat-screen--embedded .composer { padding: 14px 24px; }
+  .chat-screen--embedded .composer-error { padding: 10px 24px; }
   .chat-row--open, .chat-row--open:hover { background: var(--accent-soft); }
   .pane-empty {
     height: 100%;

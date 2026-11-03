@@ -4,7 +4,7 @@ import { badRequest, forbidden, notFound } from '../errors.js';
 import { actingGroupId, requireGroup } from '../middleware/auth.js';
 import { loadChatRows } from '../lib/chats.js';
 import { userInitials } from '../lib/format.js';
-import { parseId, readText } from '../lib/validate.js';
+import { parseId, readMessage } from '../lib/validate.js';
 
 const router = Router();
 
@@ -104,7 +104,7 @@ router.get('/chats/:id/messages', requireGroup, async (req, res) => {
 
 router.post('/chats/:id/messages', requireGroup, async (req, res) => {
   const chatId = parseId(req.params.id, 'chat id');
-  const body = readText(req.body.body, 'Message', { max: 2000, required: true });
+  const body = readMessage(req.body.body);
   await participantGroup(chatId, req.user.id);
   const { rows: [m] } = await query(
     `WITH inserted AS (

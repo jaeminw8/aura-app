@@ -3,7 +3,6 @@ import { api } from '../api.js';
 import Avatar, { GroupPair, GroupPairSkeleton } from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
 import { LoadingStatus, Skeleton } from '../components/Loading.jsx';
-import { useToast } from '../components/ui.jsx';
 import { formatTime, plural } from '../format.js';
 import { usePoll } from '../usePoll.js';
 
@@ -31,11 +30,12 @@ function mergeMessages(list, incoming) {
 // Phones: a full screen with a back arrow. Desktop: `embedded` in the Messages split view,
 // calling onActivity after it marks the chat read or sends, so the chat list can refresh.
 export default function ChatScreen({ chatId, refreshMe, embedded = false, onActivity }) {
-  const toast = useToast();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  // Why the last send failed, shown right above the message box. The typed text stays put.
+  const [sendError, setSendError] = useState(null);
   const [unseen, setUnseen] = useState(false);
   const bottom = useRef(null);
   const log = useRef(null);
@@ -118,6 +118,7 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
     const body = draft.trim();
     if (!body || sending) return;
     setSending(true);
+    setSendError(null);
     try {
       const { message } = await api(`/chats/${chatId}/messages`, { method: 'POST', body: { body } });
       // Shown now, but the cursor stays put: the next poll returns it again (deduped) along with
@@ -126,7 +127,7 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
       setDraft('');
       activityRef.current?.();
     } catch (err) {
-      toast(err.message, { tone: 'error' });
+      setSendError(err.message);
     } finally {
       setSending(false);
     }
@@ -190,12 +191,22 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
         </div>
       )}
 
+      {sendError && (
+        <p id="composer-error" className="composer-error" role="alert">
+          {sendError}
+        </p>
+      )}
       <form className="composer" onSubmit={send}>
         <label className="sr-only" htmlFor="composer">Message</label>
         <input
           id="composer"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            if (sendError) setSendError(null);
+          }}
+          aria-invalid={sendError ? true : undefined}
+          aria-describedby={sendError ? 'composer-error' : undefined}
           placeholder={`Message ${chat.otherGroup.name}`}
           maxLength={2000}
           autoComplete="off"

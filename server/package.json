@@ -9,6 +9,7 @@
     "db:reset": "node scripts/db-reset.js",
     "verify:slice": "node scripts/verify-slice.js",
     "verify:chat": "node scripts/verify-chat.js",
+    "verify:messages": "node scripts/verify-messages.js",
     "db:check": "node scripts/db-check.js"
   },
   "dependencies": {

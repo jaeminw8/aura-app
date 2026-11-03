@@ -23,6 +23,32 @@ export function readText(value, field, { max, required = false } = {}) {
   return text;
 }
 
+export const MESSAGE_MAX_LENGTH = 2000;
+
+// Control characters other than tab and newline. Postgres can't store \u0000 at all, and the rest
+// are invisible junk that usually comes from a bad paste.
+const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
+// Anything that isn't a space or an invisible character (zero-width space, joiner, BOM...).
+const VISIBLE_CHAR = /[^\s​-‍⁠﻿]/u;
+
+// A chat message body, ready to save: Windows line endings become \n, control characters are
+// removed, and the ends are trimmed. Rejects anything that is missing, isn't text, has nothing
+// visible in it, or is longer than MESSAGE_MAX_LENGTH. Length is counted like Postgres
+// char_length, so an emoji counts as one character. Errors are 400 VALIDATION_ERROR with
+// details.field = 'body' so the client can show them next to the message box.
+export function readMessage(value) {
+  const fail = (message, extra) => badRequest('VALIDATION_ERROR', message, { field: 'body', maxLength: MESSAGE_MAX_LENGTH, ...extra });
+  if (value === undefined || value === null) throw fail('Type a message before sending.');
+  if (typeof value !== 'string') throw fail('Messages must be text.');
+  const text = value.replace(/\r\n?/g, '\n').replace(CONTROL_CHARS, '').trim();
+  if (!VISIBLE_CHAR.test(text)) throw fail("Message can't be empty.");
+  const length = [...text].length;
+  if (length > MESSAGE_MAX_LENGTH) {
+    throw fail(`Messages can be up to ${MESSAGE_MAX_LENGTH} characters. This one is ${length}.`, { length });
+  }
+  return text;
+}
+
 export function readInt(value, field, { min, max, required = false } = {}) {
   if (value === undefined && !required) return undefined;
   if (value === null && !required) return null;
