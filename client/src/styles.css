@@ -587,6 +587,10 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
 .composer input[aria-invalid='true'] { border-color: var(--danger); }
 /* Why a message didn't send, right above the message box (same colors as .form-error) */
 .composer-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0;
   padding: 10px 16px;
   background: #fdeceb;
@@ -596,6 +600,8 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
   font-weight: 600;
   line-height: 1.4;
 }
+.composer-error p { margin: 0; }
+.composer-error .link-btn { flex: none; color: var(--danger); font-weight: 700; text-decoration: underline; }
 
 /* ---------- Profile ---------- */
 .profile-top { display: flex; gap: 16px; align-items: center; }
