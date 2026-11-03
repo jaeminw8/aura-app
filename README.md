@@ -134,6 +134,15 @@ The server checks every message before saving it (`readMessage` in `server/src/l
 
 **Try it by hand.** Open a chat as Avery Hansen. In DevTools, remove the `maxlength` attribute from the message box, paste in more than 2000 characters and press Send. The message appears above the box ("Messages can be up to 2000 characters. This one is 2050."), and your text is still in the box.
 
+## Friendly Error Messages
+
+On Messages and in a chat, errors are written for people, not developers. Nobody sees "Request failed (500)" or "Is `npm run dev` running?".
+
+- **One place for the wording.** `friendlyError(err)` in `client/src/friendlyError.js` turns an API error into plain text: a lost connection becomes "We can't reach aura right now…", a server error becomes "Something went wrong on our end…", and codes like `GROUP_FULL`, `CHAT_FULL`, `NOT_ACTIVE_GROUP` and `NOT_IN_CHAT` get their own explanations. The API's 400-range messages (like "Message can't be empty.") are already written for people, so they pass through. To change a message, edit that file.
+- **Try again only when it can help.** `canRetry(err)` is true for a lost connection or a 5xx. Then a failed chat shows **Try again**, and a failed send shows **Try again** next to the error above the message box, which sends your typed text again. A 4xx (a bad message, a chat you've left) gets no retry button, because sending the same thing again won't work. "Couldn't load messages" already had **Try again**.
+
+**Try it by hand.** In Chrome DevTools, open **Network** and set throttling to **Offline**. Type a message and press Send: "We can't reach aura right now…" appears above the box with **Try again**, and your text stays. Set throttling back to **No throttling** and click **Try again**: the message sends.
+
 ## Loading States
 
 While a screen waits for the API, it shows something that moves instead of a static "Loading…".
