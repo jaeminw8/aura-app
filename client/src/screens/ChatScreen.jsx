@@ -4,6 +4,7 @@ import Avatar, { GroupPair, GroupPairSkeleton } from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
 import { LoadingStatus, Skeleton } from '../components/Loading.jsx';
 import { formatTime, plural } from '../format.js';
+import { canRetry, friendlyError } from '../friendlyError.js';
 import { usePoll } from '../usePoll.js';
 
 const POLL_MS = 5000;
@@ -36,6 +37,7 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
   const [sending, setSending] = useState(false);
   // Why the last send failed, shown right above the message box. The typed text stays put.
   const [sendError, setSendError] = useState(null);
+  const composer = useRef(null);
   const [unseen, setUnseen] = useState(false);
   const bottom = useRef(null);
   const log = useRef(null);
@@ -127,7 +129,7 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
       setDraft('');
       activityRef.current?.();
     } catch (err) {
-      setSendError(err.message);
+      setSendError(err);
     } finally {
       setSending(false);
     }
@@ -139,7 +141,12 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
         {!embedded && <a className="link-btn" href="#/messages"><Icon name="chevronLeft" size={18} /> Messages</a>}
         <div className="empty" style={{ marginTop: 16 }}>
           <h2>Can't open this chat</h2>
-          <p>{error.message}</p>
+          <p>{friendlyError(error)}</p>
+          {canRetry(error) && (
+            <button type="button" className="btn btn--primary" onClick={() => { setError(null); load(); }}>
+              Try again
+            </button>
+          )}
         </div>
       </div>
     );
@@ -192,11 +199,16 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
       )}
 
       {sendError && (
-        <p id="composer-error" className="composer-error" role="alert">
-          {sendError}
-        </p>
+        <div className="composer-error">
+          <p id="composer-error" role="alert">{friendlyError(sendError)}</p>
+          {canRetry(sendError) && (
+            <button type="button" className="link-btn" disabled={sending} onClick={() => composer.current?.requestSubmit()}>
+              Try again
+            </button>
+          )}
+        </div>
       )}
-      <form className="composer" onSubmit={send}>
+      <form ref={composer} className="composer" onSubmit={send}>
         <label className="sr-only" htmlFor="composer">Message</label>
         <input
           id="composer"
