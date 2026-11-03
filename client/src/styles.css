@@ -294,7 +294,7 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
   height: 22px;
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--warm);
+  background: #c2410c; /* darker than --warm so white text passes WCAG AA */
   color: #fff;
   font-size: 12px;
   font-weight: 700;
