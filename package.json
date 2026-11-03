@@ -17,7 +17,8 @@
     "build": "npm run build -w client",
     "start": "npm run start -w server",
     "verify:slice": "npm run verify:slice -w server",
-    "verify:chat": "npm run verify:chat -w server"
+    "verify:chat": "npm run verify:chat -w server",
+    "verify:messages": "npm run verify:messages -w server --"
   },
   "devDependencies": {
     "concurrently": "^9.2.4"
