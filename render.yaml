@@ -1,0 +1,30 @@
+# Render Blueprint: Dashboard → New → Blueprint → pick this repo.
+# Creates the Express API (web service) and the Vite client (static site).
+# If Render had to add a suffix to either URL, update VITE_API_URL / CORS_ORIGIN to match.
+services:
+  - type: web
+    name: aura-is401-api
+    runtime: node
+    plan: free
+    region: virginia # same region as the Supabase project (us-east-1)
+    buildCommand: npm ci --workspace server --include-workspace-root
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false # paste the Session pooler URI in the dashboard; never commit it
+      - key: CORS_ORIGIN
+        value: https://aura-is401.onrender.com
+      - key: NODE_VERSION
+        value: "22"
+
+  - type: web
+    name: aura-is401
+    runtime: static
+    buildCommand: npm ci --workspace client --include-workspace-root && npm run build
+    staticPublishPath: client/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://aura-is401-api.onrender.com
+      - key: NODE_VERSION
+        value: "22"

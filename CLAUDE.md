@@ -9,6 +9,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - `server/`: Node + Express 5 REST API. It talks to Postgres with `pg` only. Don't add the Supabase JS client.
 - `db/`: `schema.sql` (drops and recreates everything) and `seed.sql` (truncates, then inserts demo data).
 - `docs/`: ERD as `erd.dbml`, `erd.mmd` and `erd.png` (`npx @mermaid-js/mermaid-cli -i docs/erd.mmd -o docs/erd.png`).
+- Hosting: Render, from `render.yaml` (API web service + static client). The client reads `VITE_API_URL` at build time; the API allows only `CORS_ORIGIN`. Pushing to `main` redeploys.
 - Database: the shared Supabase project **Find Friends App**, reached through the Session pooler (port 5432). The connection string lives only in `server/.env`.
 
 ## Commands (run from the repo root)

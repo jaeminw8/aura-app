@@ -23,10 +23,10 @@ export default function GroupSwitcher({ groups, activeGroupId, onSwitch }) {
         className="group-switch__pill"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Acting as ${active.name}. Switch group`}
         onClick={() => setOpen((o) => !o)}
       >
         <Avatar initials={active.initials} solid size={44} />
+        <span className="sr-only">Switch group. Acting as </span>
         <span className="group-switch__name">{active.name}</span>
         <Icon name="chevronDown" size={20} />
       </button>

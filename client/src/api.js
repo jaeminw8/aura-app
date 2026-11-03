@@ -1,5 +1,7 @@
 // Thin fetch wrapper. Every request carries the "Signed in as" user in X-User-Id.
 const STORAGE_KEY = 'aura.userId';
+// Hosted builds call the API on its own origin (set at build time); locally Vite proxies /api.
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 let currentUserId = null;
 
 export class ApiError extends Error {
@@ -36,7 +38,7 @@ export function setApiUser(id) {
 export async function api(path, { method = 'GET', body } = {}) {
   let res;
   try {
-    res = await fetch(`/api${path}`, {
+    res = await fetch(`${API_BASE}/api${path}`, {
       method,
       headers: {
         ...(body !== undefined && { 'Content-Type': 'application/json' }),
@@ -45,7 +47,8 @@ export async function api(path, { method = 'GET', body } = {}) {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError(0, 'NETWORK_ERROR', "Can't reach the aura server. Is `npm run dev` running?");
+    const hint = API_BASE ? 'It may be waking up; try again in a minute.' : 'Is `npm run dev` running?';
+    throw new ApiError(0, 'NETWORK_ERROR', `Can't reach the aura server. ${hint}`);
   }
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);

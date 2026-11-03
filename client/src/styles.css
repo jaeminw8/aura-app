@@ -4,7 +4,7 @@
   --card: #ffffff;
   --ink: #16151c;
   --muted: #5e5b6a;
-  --faint: #8d8a99;
+  --faint: #6c6979; /* 4.5:1+ on the page and card backgrounds (WCAG AA) */
   --line: #e6e4ee;
   --accent: #5b3df5;
   --accent-ink: #3b23c7;
