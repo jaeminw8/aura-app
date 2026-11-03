@@ -12,6 +12,24 @@ import publicRouter from './routes/public.js';
 const app = express();
 app.set('etag', false);
 
+// CORS: only the hosted client (CORS_ORIGIN, comma-separated) may call the API from a browser.
+// Locally Vite proxies /api, so requests are same-origin and CORS_ORIGIN can stay unset.
+const allowedOrigins = (process.env.CORS_ORIGIN ?? '').split(',').map((o) => o.trim()).filter(Boolean);
+app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  if (origin && allowedOrigins.includes(origin)) {
+    res.set({
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
+      'Access-Control-Max-Age': '600',
+      Vary: 'Origin',
+    });
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(origin && allowedOrigins.includes(origin) ? 204 : 403);
+  next();
+});
+
 app.use(express.json({ limit: '100kb' }));
 app.use((req, res, next) => {
   req.body ??= {};
@@ -38,5 +56,6 @@ app.use('/api', (req) => {
 });
 app.use(errorHandler);
 
-const port = Number(process.env.API_PORT) || 4000;
-app.listen(port, () => console.log(`aura API listening on http://localhost:${port}`));
+// Locally API_PORT wins (the desktop preview launcher sets PORT=5173); hosts like Render set PORT.
+const port = Number(process.env.API_PORT || process.env.PORT) || 4000;
+app.listen(port, () => console.log(`aura API listening on port ${port}`));
