@@ -4,6 +4,7 @@ import Avatar, { GroupPair, GroupPairSkeleton } from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
 import { LoadingStatus, Skeleton, Spinner } from '../components/Loading.jsx';
 import { useToast } from '../components/ui.jsx';
+import { friendlyError } from '../friendlyError.js';
 import ChatScreen from './ChatScreen.jsx';
 import { formatChatTime, plural } from '../format.js';
 import { usePoll } from '../usePoll.js';
@@ -91,7 +92,7 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
       if (isDesktop) window.location.hash = `#/messages/${chat.id}`; // open it in the chat pane
       toast(`You matched with ${like.group.name}! Say hi in your new chat.`);
     } catch (err) {
-      toast(err.message, { tone: 'error' });
+      toast(friendlyError(err), { tone: 'error' });
       if (['ALREADY_MATCHED', 'ALREADY_DECIDED', 'LIKE_NOT_FOUND'].includes(err.code)) load();
     } finally {
       setPending(null);
@@ -105,7 +106,7 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
       setLikes((ls) => ls.filter((l) => l.id !== like.id));
       toast(`Declined ${like.group.name}.`);
     } catch (err) {
-      toast(err.message, { tone: 'error' });
+      toast(friendlyError(err), { tone: 'error' });
     } finally {
       setPending(null);
     }
@@ -132,7 +133,7 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
       toast(`${plural(ids.length, 'chat')} ${verb}.`);
       refreshMe();
     } catch (err) {
-      toast(err.message, { tone: 'error' });
+      toast(friendlyError(err), { tone: 'error' });
     }
   };
 
@@ -165,7 +166,7 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
       {error && (
         <div className="empty">
           <h2>Couldn't load messages</h2>
-          <p>{error.message}</p>
+          <p>{friendlyError(error)}</p>
           <button type="button" className="btn btn--primary" onClick={load}>Try again</button>
         </div>
       )}
