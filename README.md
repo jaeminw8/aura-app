@@ -176,6 +176,12 @@ The vertical slice is **Accept** in "Groups that liked you". It goes from the br
 
    The new match and chat have the same timestamp, because they were created in the same transaction.
 
+### Verifying Decline
+
+The **Decline** action in "Groups that liked you" asks for confirmation before sending `POST /api/likes/:id/decline`. After confirmation, the request disappears without a page reload. Refresh Messages to confirm it stays gone, then open Find and confirm the declined group is not recommended again. In Supabase's **Table Editor**, the original `group_likes` row should have `decision = 'pass'`.
+
+With `npm run dev` running, `npm run verify:decline` checks the API response, refreshed inbox, recommendation exclusion, persisted `group_likes` decision, and duplicate-decline handling. It really declines a request, so run `npm run db:reset` afterwards to restore the demo data.
+
 Run `npm run db:reset` to put the two requests back for the next demo (check with the team first, because it resets the shared database).
 
 You can also check the slice automatically. With `npm run dev` running, run `npm run verify:slice`. It accepts a request as Avery, checks the API response, refetches like a browser refresh would, checks the database rows, and prints `PASS`/`FAIL` for each step. It really accepts a request, so coordinate with the team before running it on the shared database.

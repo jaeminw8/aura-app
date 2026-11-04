@@ -100,6 +100,7 @@ export default function MessagesScreen({ me, onSwitchGroup, refreshMe, isDesktop
   };
 
   const decline = async (like) => {
+    if (!window.confirm(`Decline ${like.group.name}'s request?`)) return;
     setPending({ id: like.id, action: 'decline' });
     try {
       await api(`/likes/${like.id}/decline`, { method: 'POST' });
