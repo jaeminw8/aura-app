@@ -18,6 +18,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - `npm run dev`: starts the API (`API_PORT`, default 4000) and Vite (5173, which proxies `/api` to the API).
 - `npm run db:check`: connects with `server/.env` and prints the `users` row count. It's read-only.
 - `npm run db:reset`: runs schema then seed. **This wipes the shared team database.** Ask the team (or the user) before running it.
+- `npm run db:migrate`: runs every `db/migrations/*.sql` (additive, re-runnable) and prints the OKR percentages. Safe on the shared database.
 - `npm run verify:slice`: end-to-end check of the Accept flow. It mutates data, so follow it with `db:reset` only if the team agrees.
 - `npm run verify:chat`: end-to-end check of live chat updates (`?after=` polling, list re-sort). It posts a real message and marks a chat read, so ask the team before running it on the shared database, and follow it with `db:reset` only if the team agrees.
 - `npm run verify:messages`: checks that bad messages (empty, whitespace or invisible only, `\u0000`, too long, not text) get `400 VALIDATION_ERROR` and save nothing. It's read-only and safe on the shared database; `-- --post` also saves two test messages.
@@ -32,7 +33,8 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - UI: inline stroke SVG icons (`components/Icon.jsx`), no emoji, initials-on-pastel avatars, touch targets of at least 44px.
 - Loading states come from `components/Loading.jsx`: `Skeleton` rows built from the real rows' classes where the layout is known, otherwise `Loader` (spinner and label). Mark the loading area `aria-busy="true"` and pair skeletons with a `LoadingStatus` (`role="status"`). The global `prefers-reduced-motion` rule in `styles.css` stops every animation.
 - Layout: below 1024px wide it's the phone layout (430px column, bottom tab bar). At 1024px and up, `App.jsx` (`useMediaQuery`) switches to the desktop layout: a sidebar (`SideNav`), Messages as list + chat panes, Find card side by side, and Profile in two columns. All desktop CSS lives in the `min-width: 1024px` blocks at the end of `styles.css`. Keep phone styles outside those blocks.
-- Schema changes go in `db/schema.sql` (and the ERD files), never only by hand in the Supabase dashboard.
+- Schema changes go in `db/schema.sql` (and the ERD files), never only by hand in the Supabase dashboard. To change the live shared database without wiping it, also add an additive, re-runnable file in `db/migrations/` and run `npm run db:migrate`.
+- OKRs (KR1-KR4) come from the `okr_metrics` view; README "OKR Metrics" says which table each one reads.
 
 ## Business rules (enforced on the server or in the database)
 - A Friend Group has at most 10 members (trigger `group_member_cap`, which raises `GROUP_FULL`). A chat has at most 30 people (`chat_participant_cap`, which raises `CHAT_FULL`).

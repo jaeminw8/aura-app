@@ -8,7 +8,7 @@
 BEGIN;
 
 TRUNCATE
-  group_event_attendance, events, messages, chat_participants, chats,
+  meetups, group_event_attendance, events, messages, chat_participants, chats,
   group_matches, group_likes, friendships, user_interests, interests,
   user_photos, group_memberships, friend_groups, users
   RESTART IDENTITY CASCADE;
@@ -163,6 +163,10 @@ INSERT INTO messages (chat_id, sender_user_id, body, created_at) VALUES
   (1, 8,  'My place Friday at 8, bring snacks',                         now() - interval '2 hours'),
   (1, 12, 'I''ll bring the new expansion',                              now() - interval '90 minutes'),
   (1, 7,  'Trailhead at 6:15, bring headlamps',                         now() - interval '40 minutes');
+
+-- Tuesday Crew and Sunday Summit Club already met up once (feeds KR4 in okr_metrics).
+INSERT INTO meetups (match_id, confirmed_by_user_id, created_at) VALUES
+  (1, 1, now() - interval '1 day');
 
 -- ---------------------------------------------------------------------------
 -- Events (local Provo times, relative to today)

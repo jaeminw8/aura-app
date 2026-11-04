@@ -11,6 +11,7 @@
 //   * chat "N people"           -> COUNT(chat_participants)
 //   * unread count              -> messages newer than chat_participants.last_read_at
 //   * incoming like is pending  -> no reverse row in group_likes yet
+//   * OKR KR1-KR4 percentages   -> view okr_metrics (group_matches, group_memberships, messages, meetups)
 
 Enum like_decision {
   connect
@@ -170,6 +171,17 @@ Table messages {
   }
 }
 
+Table meetups {
+  id                    bigint [pk, increment]
+  match_id              bigint [not null, note: 'the matched pair that met up in person (KR4)']
+  confirmed_by_user_id  bigint [note: 'who confirmed it; null if that account was deleted']
+  created_at            timestamptz [not null, default: `now()`]
+
+  indexes {
+    match_id
+  }
+}
+
 // ---------- Events ----------
 
 Table events {
@@ -237,6 +249,10 @@ Ref: chat_participants.group_id > friend_groups.id [delete: cascade]
 // 1:N  a chat has many messages; a user sends many messages
 Ref: messages.chat_id > chats.id [delete: cascade]
 Ref: messages.sender_user_id > users.id [delete: set null]
+
+// 1:N  a match has 0..N confirmed meetups; a user confirms many meetups
+Ref: meetups.match_id > group_matches.id [delete: cascade]
+Ref: meetups.confirmed_by_user_id > users.id [delete: set null]
 
 // 1:N  a user creates many events
 Ref: events.created_by_user_id > users.id [delete: set null]
