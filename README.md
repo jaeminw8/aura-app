@@ -107,7 +107,16 @@ The live app runs on [Render](https://render.com), set up from [`render.yaml`](r
 - **`aura-is401-api`** (web service): the Express API. `DATABASE_URL` is set in Render's Environment tab, never in the repo. `CORS_ORIGIN` allows only the client's URL to call the API from a browser.
 - **`aura-is401`** (static site): the Vite build of the client. `VITE_API_URL` tells it where the API lives; it's baked in at build time.
 
-Every push to `main` redeploys both. To set it up from scratch: Render Dashboard → **New → Blueprint** → pick this repo → paste the Session pooler URI as `DATABASE_URL` → **Apply**. If Render gives either service a different URL (it adds a suffix when a name is taken), update `CORS_ORIGIN` and `VITE_API_URL` to match.
+Every push or merge to `main` redeploys both automatically (about a minute); nothing to click. To set it up from scratch: Render Dashboard → **New → Blueprint** → pick this repo → paste the Session pooler URI as `DATABASE_URL` → **Apply**. If Render gives either service a different URL (it adds a suffix when a name is taken), update `CORS_ORIGIN` and `VITE_API_URL` to match.
+
+## How We Merge
+
+`main` is what's live, so changes reach it only through a pull request.
+
+1. **Branch.** Start from an up-to-date `main`: `git checkout main && git pull`, then `git checkout -b yourname/short-description`.
+2. **Pull request.** Commit, `git push -u origin yourname/short-description`, and open a PR into `main` on GitHub. Say what changed and how you tested it.
+3. **Review.** The **CI** check (GitHub Actions) runs `npm ci && npm run build` on every PR; it must be green. A teammate reads the PR and approves it or asks for changes.
+4. **Merge.** Click **Merge pull request** and delete the branch. Render redeploys the live app from `main` within about a minute. Open https://aura-is401.onrender.com and check your change.
 
 ## Verifying the Vertical Slice
 

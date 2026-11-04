@@ -7,6 +7,8 @@ services:
     runtime: node
     plan: free
     region: virginia # same region as the Supabase project (us-east-1)
+    branch: main
+    autoDeploy: true # every push/merge to main redeploys
     buildCommand: npm ci --workspace server --include-workspace-root
     startCommand: npm start
     healthCheckPath: /api/health
@@ -21,6 +23,8 @@ services:
   - type: web
     name: aura-is401
     runtime: static
+    branch: main
+    autoDeploy: true
     buildCommand: npm ci --workspace client --include-workspace-root && npm run build
     staticPublishPath: client/dist
     envVars:
