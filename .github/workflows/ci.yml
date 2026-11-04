@@ -1,0 +1,19 @@
+# Every pull request must install cleanly and build before it's merged.
+# Deploys are separate: Render redeploys the API and client on each push to main (see render.yaml).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && npm run build
