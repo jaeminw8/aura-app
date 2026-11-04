@@ -1,8 +1,10 @@
 # aura
 
+**Live app: [https://aura-is401.onrender.com](https://aura-is401.onrender.com)**
+
 A mobile-first web app that helps groups of friends find and meet other friend groups. Built by Team Aura: Clint Burton, David Medina, Jaemin Weight and Julian Miles.
 
-**Live app: https://aura-is401.onrender.com** (works on phones and desktops; pick any user in "Signed in as"). The API runs on Render's free plan, so after about 15 idle minutes the first request takes up to a minute while it wakes up.
+The live app works on phones and desktops; pick any user in "Signed in as". The API runs on Render's free plan, so after about 15 idle minutes the first request takes up to a minute while it wakes up.
 
 ## App Summary
 
@@ -24,6 +26,31 @@ From our Product Requirements Document.
 | 8 | Two groups match when one user from each says yes, from Find or from the inbox. | **Complete** | A reciprocal `connect` in `group_likes` creates the match, whether it comes from Find or from Accept. |
 | 9 | Recommendations are ranked by (1) shared interests, (2) 1st- and 2nd-degree mutual connections, (3) geographic proximity. | **Complete** | Ordered by shared interests, then 1st-degree, then 2nd-degree mutual friends, then same city, then distance. Groups you already liked, passed or matched are excluded. |
 | 10 | When two groups match, a group chat is created for both groups. | **Complete** | The match, its chat and every member of both groups as participants are created in one transaction (capped at 30 people by `chat_participant_cap`). |
+
+**9 of 10 complete.**
+
+## Vertical Slices
+
+Each slice works end to end: a screen in the app, an API endpoint, and rows in Postgres, live at the URL above. **Target for Sprint 2: 10. Working now: 14.**
+
+| # | Slice | What the user does | API | Database |
+|---|---|---|---|---|
+| 1 | Create an account | Welcome → **Create account**, then appears in "Signed in as" | `POST /api/users` | `users` |
+| 2 | Profile and interests | Profile → edit bio, details and interests | `PATCH /api/me` | `users`, `user_interests` (group interests update through the `group_shared_interests` view) |
+| 3 | Profile photos | Profile → add or remove a photo (1–3, placeholder images) | `POST /api/me/photos`, `DELETE /api/me/photos/:id` | `user_photos` |
+| 4 | Onboarding gate | A user with no group sees "Create or join a group" instead of the app | any group endpoint → `403 NO_GROUP` | `group_memberships` |
+| 5 | Create a group | Gate or Profile → **Create a group** | `POST /api/groups` | `friend_groups`, `group_memberships`, `users.active_group_id` |
+| 6 | Join with an invite code | Enter a code; a full group shows "already has 10 members" | `POST /api/groups/join` → `409 GROUP_FULL` when full | `group_memberships` (`group_member_cap` trigger) |
+| 7 | Invite a friend to your group | Profile → **Invite friends** → pick a friend | `GET /api/me/friends`, `POST /api/groups/:id/members` | `friendships`, `group_memberships`, `chat_participants` |
+| 8 | Edit group and leave group | Profile → edit name/status, or **Leave group** | `PATCH /api/groups/:id`, `DELETE /api/groups/:id/members/me` | `friend_groups`, `group_memberships`, `chat_participants` |
+| 9 | Add a group event | Profile → **Add event** (title, place, time, cost); it shows on the group's Find card | `POST /api/groups/:id/events` | `events`, `group_event_attendance` |
+| 10 | Switch active group | Group switcher on Find or "Chatting as" on Messages | `PATCH /api/me/active-group` | `users.active_group_id` (composite FK to memberships) |
+| 11 | Find, Connect and Pass | Find shows one ranked group at a time; **Connect** or **Pass** loads the next | `GET /api/recommendations`, `POST /api/groups/:id/likes` | `group_likes`; a mutual Connect creates the match and chat |
+| 12 | Accept or decline a request | Messages → "Groups that liked you" → **Accept** (new chat appears) or decline | `GET /api/groups/:id/incoming-likes`, `POST /api/likes/:id/accept`, `POST /api/likes/:id/decline` | `group_likes`, `group_matches`, `chats`, `chat_participants` in one transaction |
+| 13 | Group chat with live updates | Open a chat, send a message; the other group sees it within ~5 seconds | `GET /api/chats/:id/messages?after=`, `POST /api/chats/:id/messages` | `messages`, `chat_participants.last_read_at` |
+| 14 | Archive, delete and restore chats | Messages → **Select all** or pick chats → archive / delete; restore from Recently deleted | `GET /api/groups/:id/chats?view=`, `POST /api/chats/bulk` | `chat_participants` (per-person archived/deleted state) |
+
+Slice 12 has a step-by-step walkthrough in [Verifying the Vertical Slice](#verifying-the-vertical-slice), and slice 13 in [Live Chat Updates](#live-chat-updates).
 
 ## ERD
 
