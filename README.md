@@ -52,6 +52,15 @@ Each slice works end to end: a screen in the app, an API endpoint, and rows in P
 
 Slice 12 has a step-by-step walkthrough in [Verifying the Vertical Slice](#verifying-the-vertical-slice), and slice 13 in [Live Chat Updates](#live-chat-updates).
 
+## System Architecture
+
+![aura system architecture](docs/architecture.png)
+
+- **Customer app:** users use the React website, which sends requests to our Express server. The server saves and loads data in Supabase, which also handles logins. Both run live on Render.
+- **AI service (planned):** the server sends both groups' interests to an AI service, which returns chat suggestions to get a conversation started.
+- **Admin portal (planned, AWS):** an admin uses HTML/CSS pages backed by an Express server and its own database.
+- **Where the apps connect:** the admin server reads app data from Supabase.
+
 ## ERD
 
 ![aura entity relationship diagram](docs/erd.png)
