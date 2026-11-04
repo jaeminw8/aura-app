@@ -19,6 +19,8 @@ erDiagram
     friend_groups ||--o{ chat_participants : "represented by"
     chats ||--o{ messages : contains
     users |o--o{ messages : sends
+    group_matches ||--o{ meetups : "met up"
+    users |o--o{ meetups : confirms
     users |o--o{ events : creates
     friend_groups ||--o{ group_event_attendance : "going to"
     events ||--o{ group_event_attendance : "attended by"
@@ -112,6 +114,12 @@ erDiagram
         bigint chat_id FK
         bigint sender_user_id FK
         text body
+        timestamptz created_at
+    }
+    meetups {
+        bigint id PK
+        bigint match_id FK
+        bigint confirmed_by_user_id FK
         timestamptz created_at
     }
     events {

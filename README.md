@@ -66,6 +66,22 @@ Business rules are enforced in the database, not just the UI:
 - A composite foreign key ensures your active group is one you belong to.
 - A group's shared interests come from the `group_shared_interests` view, so they're never stored and update the moment a member edits their interests.
 
+## OKR Metrics
+
+All four Key Results are computed automatically by the `okr_metrics` view (in [`db/schema.sql`](db/schema.sql)). It's one row, recalculated from the live tables every time you read it, so nothing has to be counted by hand or kept in sync. To see it, run `SELECT * FROM okr_metrics;` in Supabase's **SQL Editor**, or open the view in the **Table Editor**.
+
+| KR | Measures | Column (count → percentage) | Formula | What updates it |
+|---|---|---|---|---|
+| **KR1** | % of registered groups that connect with another group | `connected_groups` → `kr1_connect_pct` | groups in at least one `group_matches` row ÷ all `friend_groups` | A **match**: two groups both say Connect (Find or Accept in "Groups that liked you") → new `group_matches` row. A **new group** → new `friend_groups` row (raises the denominator). |
+| **KR2** | % of groups with 4+ people | `four_plus_groups` → `kr2_four_plus_pct` | groups with ≥ 4 `group_memberships` rows ÷ all `friend_groups` | Someone **creates, joins or leaves** a group, or is **invited** into one → `group_memberships` row added or removed. |
+| **KR3** | % of connected groups that exchange messages | `messaging_groups` → `kr3_message_pct` | connected groups with a match chat where **both** groups have sent at least one message ÷ connected groups | A **message is sent** → new `messages` row. The sender's side comes from `chat_participants.group_id`. A chat where only one group has talked doesn't count yet. |
+| **KR4** | % of connected groups that meet up | `meetup_groups` → `kr4_meetup_pct` | connected groups with at least one `meetups` row for any of their matches ÷ connected groups | A **meetup is confirmed** → new `meetups` row (`match_id`, `confirmed_by_user_id`, `created_at`). |
+
+Notes:
+- **KR4 has no button in the app yet.** The `meetups` table is the groundwork; the next step is a "We met up" action in a match's chat that inserts a row. Until then, add rows in the Table Editor, as the seed does for Tuesday Crew + Sunday Summit Club.
+- A percentage is empty (`NULL`) instead of an error when its denominator is 0, for example KR3 and KR4 before any group has matched.
+- **Updating an existing database:** schema changes that must keep everyone's data go in `db/migrations/` as files that only add things and are safe to re-run. `npm run db:migrate` runs them all and prints the current KRs. `db/schema.sql` also includes them, so a fresh `npm run db:reset` gets the same result. `001_okr_metrics.sql` is already applied to Find Friends App.
+
 ## Tech Stack
 
 | Layer | Choice | Why it fits our team |

@@ -14,6 +14,7 @@
     "dev": "concurrently -k -n api,web -c magenta,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
     "db:check": "npm run db:check -w server",
     "db:reset": "npm run db:reset -w server",
+    "db:migrate": "npm run db:migrate -w server",
     "build": "npm run build -w client",
     "start": "npm run start -w server",
     "verify:slice": "npm run verify:slice -w server",
