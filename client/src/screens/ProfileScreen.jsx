@@ -3,15 +3,13 @@ import { api } from '../api.js';
 import Avatar, { AvatarStack } from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
 import {
-  AddEventForm, AddInterestForm, CreateOrJoinForm, EditProfileForm, InviteFriends, ManageGroupForm,
+  AddInterestForm, CreateOrJoinForm, EditProfileForm, InviteFriends, ManageGroupForm,
 } from '../components/forms.jsx';
 import { Sheet, useToast } from '../components/ui.jsx';
-import { formatTime, RELATIONSHIP_LABELS } from '../format.js';
+import { RELATIONSHIP_LABELS } from '../format.js';
 
 const PHOTO_TINTS = ['#E6E1FF', '#DDF3E0', '#FDDCCB'];
 const PHOTO_INK = ['#4C1D95', '#166534', '#9A3412'];
-const weekdayTime = (iso) => `${new Date(iso).toLocaleDateString('en-US', { weekday: 'short' })} ${formatTime(iso)}`;
-
 export default function ProfileScreen({ me, setMe, refreshMe, onSwitchGroup }) {
   const toast = useToast();
   const [sheet, setSheet] = useState(null); // { type, group? }
@@ -152,7 +150,6 @@ export default function ProfileScreen({ me, setMe, refreshMe, onSwitchGroup }) {
               onSwitch={() => onSwitchGroup(g.id)}
               onInvite={() => setSheet({ type: 'invite', group: g })}
               onManage={() => setSheet({ type: 'manage', group: g })}
-              onAddEvent={() => setSheet({ type: 'event', group: g })}
             />
           ))}
         </div>
@@ -193,18 +190,12 @@ export default function ProfileScreen({ me, setMe, refreshMe, onSwitchGroup }) {
           />
         </Sheet>
       )}
-      {sheet?.type === 'event' && (
-        <Sheet title="Add event" onClose={close}>
-          <AddEventForm group={sheet.group} onDone={async () => { await refreshMe(); close(); toast('Event added.'); }} />
-        </Sheet>
-      )}
     </div>
   );
 }
 
-function MyGroupCard({ group, onSwitch, onInvite, onManage, onAddEvent }) {
+function MyGroupCard({ group, onSwitch, onInvite, onManage }) {
   const topInterests = group.interests.slice(0, 3).map((i) => i.name).join(', ');
-  const next = group.events[0];
   return (
     <section className={`card mygroup ${group.isActive ? 'mygroup--active' : ''}`} aria-label={group.name}>
       <div className="mygroup__head">
@@ -225,19 +216,7 @@ function MyGroupCard({ group, onSwitch, onInvite, onManage, onAddEvent }) {
         {!group.isFull && <button type="button" className="link-btn" onClick={onInvite}>+ Invite friends</button>}
       </div>
 
-      <div className="mygroup__event">
-        <Icon name="calendar" size={20} />
-        {next ? (
-          <span><strong>{next.title}</strong> · {weekdayTime(next.startsAt)} · {next.placeName}</span>
-        ) : (
-          <span className="subtle">No upcoming events</span>
-        )}
-      </div>
-
-      <div className="mygroup__actions">
-        <button type="button" className="btn btn--outline" onClick={onManage}>Manage group</button>
-        <button type="button" className="btn btn--primary" onClick={onAddEvent}>Add event</button>
-      </div>
+      <button type="button" className="btn btn--outline btn--block" onClick={onManage}>Manage group</button>
     </section>
   );
 }

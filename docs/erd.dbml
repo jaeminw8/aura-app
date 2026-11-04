@@ -182,29 +182,6 @@ Table meetups {
   }
 }
 
-// ---------- Events ----------
-
-Table events {
-  id                  bigint [pk, increment]
-  title               varchar(100) [not null]
-  place_name          varchar(100) [not null, note: '"Theo\'s place", "Trailhead lot"']
-  starts_at           timestamptz [not null]
-  cost_cents          integer [not null, default: 0, note: 'CHECK >= 0; 0 renders as "Free"']
-  created_by_user_id  bigint
-  created_at          timestamptz [not null, default: `now()`]
-}
-
-Table group_event_attendance {
-  group_id          bigint [not null]
-  event_id          bigint [not null]
-  added_by_user_id  bigint
-  created_at        timestamptz [not null, default: `now()`]
-
-  indexes {
-    (group_id, event_id) [pk]
-  }
-}
-
 // ---------- Relationships ----------
 
 // 1:N  a user has 0..3 photos
@@ -253,11 +230,3 @@ Ref: messages.sender_user_id > users.id [delete: set null]
 // 1:N  a match has 0..N confirmed meetups; a user confirms many meetups
 Ref: meetups.match_id > group_matches.id [delete: cascade]
 Ref: meetups.confirmed_by_user_id > users.id [delete: set null]
-
-// 1:N  a user creates many events
-Ref: events.created_by_user_id > users.id [delete: set null]
-
-// M:N  friend_groups <-> events via group_event_attendance ("Going to")
-Ref: group_event_attendance.group_id > friend_groups.id [delete: cascade]
-Ref: group_event_attendance.event_id > events.id [delete: cascade]
-Ref: group_event_attendance.added_by_user_id > users.id [delete: set null]

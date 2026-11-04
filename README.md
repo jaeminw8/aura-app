@@ -8,7 +8,7 @@ The live app works on phones and desktops; pick any user in "Signed in as". The 
 
 ## App Summary
 
-Friend groups often want to meet other friend groups and do things together: a game night, a hike, a pickup game. But they don't know where to find those groups or which ones are open to meeting new people. This is common for college students and young adults who have moved to a new city, or whose circle has gotten small, and existing apps match individuals for dating or networking rather than whole groups. aura lets each person build a profile and join or create a Friend Group of up to 10 people, then swipe on one recommended group at a time on behalf of their active group. Recommendations are ranked by shared interests, then mutual friends, then whether the group is in the same city. When one member of each group says "Connect", from Find or by accepting in the "Groups that liked you" inbox, the two groups match and aura automatically opens a shared group chat with everyone from both groups. Each group card also shows the events the group is going to, so it's easy to pick a first plan together.
+Friend groups often want to meet other friend groups and do things together: a game night, a hike, a pickup game. But they don't know where to find those groups or which ones are open to meeting new people. This is common for college students and young adults who have moved to a new city, or whose circle has gotten small, and existing apps match individuals for dating or networking rather than whole groups. aura lets each person build a profile and join or create a Friend Group of up to 10 people, then swipe on one recommended group at a time on behalf of their active group. Recommendations are ranked by shared interests, then mutual friends, then whether the group is in the same city. When one member of each group says "Connect", from Find or by accepting in the "Groups that liked you" inbox, the two groups match and aura automatically opens a shared group chat with everyone from both groups.
 
 ## Behavioral Requirements
 
@@ -31,7 +31,7 @@ From our Product Requirements Document.
 
 ## Vertical Slices
 
-Each slice works end to end: a screen in the app, an API endpoint, and rows in Postgres, live at the URL above. **Target for Sprint 2: 10. Working now: 14.**
+Each slice works end to end: a screen in the app, an API endpoint, and rows in Postgres, live at the URL above. **Target for Sprint 2: 10. Working now: 13.**
 
 | # | Slice | What the user does | API | Database |
 |---|---|---|---|---|
@@ -43,14 +43,13 @@ Each slice works end to end: a screen in the app, an API endpoint, and rows in P
 | 6 | Join with an invite code | Enter a code; a full group shows "already has 10 members" | `POST /api/groups/join` → `409 GROUP_FULL` when full | `group_memberships` (`group_member_cap` trigger) |
 | 7 | Invite a friend to your group | Profile → **Invite friends** → pick a friend | `GET /api/me/friends`, `POST /api/groups/:id/members` | `friendships`, `group_memberships`, `chat_participants` |
 | 8 | Edit group and leave group | Profile → edit name/status, or **Leave group** | `PATCH /api/groups/:id`, `DELETE /api/groups/:id/members/me` | `friend_groups`, `group_memberships`, `chat_participants` |
-| 9 | Add a group event | Profile → **Add event** (title, place, time, cost); it shows on the group's Find card | `POST /api/groups/:id/events` | `events`, `group_event_attendance` |
-| 10 | Switch active group | Group switcher on Find or "Chatting as" on Messages | `PATCH /api/me/active-group` | `users.active_group_id` (composite FK to memberships) |
-| 11 | Find, Connect and Pass | Find shows one ranked group at a time; **Connect** or **Pass** loads the next | `GET /api/recommendations`, `POST /api/groups/:id/likes` | `group_likes`; a mutual Connect creates the match and chat |
-| 12 | Accept or decline a request | Messages → "Groups that liked you" → **Accept** (new chat appears) or decline | `GET /api/groups/:id/incoming-likes`, `POST /api/likes/:id/accept`, `POST /api/likes/:id/decline` | `group_likes`, `group_matches`, `chats`, `chat_participants` in one transaction |
-| 13 | Group chat with live updates | Open a chat, send a message; the other group sees it within ~5 seconds | `GET /api/chats/:id/messages?after=`, `POST /api/chats/:id/messages` | `messages`, `chat_participants.last_read_at` |
-| 14 | Archive, delete and restore chats | Messages → **Select all** or pick chats → archive / delete; restore from Recently deleted | `GET /api/groups/:id/chats?view=`, `POST /api/chats/bulk` | `chat_participants` (per-person archived/deleted state) |
+| 9 | Switch active group | Group switcher on Find or "Chatting as" on Messages | `PATCH /api/me/active-group` | `users.active_group_id` (composite FK to memberships) |
+| 10 | Find, Connect and Pass | Find shows one ranked group at a time; **Connect** or **Pass** loads the next | `GET /api/recommendations`, `POST /api/groups/:id/likes` | `group_likes`; a mutual Connect creates the match and chat |
+| 11 | Accept or decline a request | Messages → "Groups that liked you" → **Accept** (new chat appears) or decline | `GET /api/groups/:id/incoming-likes`, `POST /api/likes/:id/accept`, `POST /api/likes/:id/decline` | `group_likes`, `group_matches`, `chats`, `chat_participants` in one transaction |
+| 12 | Group chat with live updates | Open a chat, send a message; the other group sees it within ~5 seconds | `GET /api/chats/:id/messages?after=`, `POST /api/chats/:id/messages` | `messages`, `chat_participants.last_read_at` |
+| 13 | Archive, delete and restore chats | Messages → **Select all** or pick chats → archive / delete; restore from Recently deleted | `GET /api/groups/:id/chats?view=`, `POST /api/chats/bulk` | `chat_participants` (per-person archived/deleted state) |
 
-Slice 12 has a step-by-step walkthrough in [Verifying the Vertical Slice](#verifying-the-vertical-slice), and slice 13 in [Live Chat Updates](#live-chat-updates).
+Slice 11 has a step-by-step walkthrough in [Verifying the Vertical Slice](#verifying-the-vertical-slice), and slice 12 in [Live Chat Updates](#live-chat-updates).
 
 ## System Architecture
 
@@ -89,7 +88,7 @@ All four Key Results are computed automatically by the `okr_metrics` view (in [`
 Notes:
 - **KR4 has no button in the app yet.** The `meetups` table is the groundwork; the next step is a "We met up" action in a match's chat that inserts a row. Until then, add rows in the Table Editor, as the seed does for Tuesday Crew + Sunday Summit Club.
 - A percentage is empty (`NULL`) instead of an error when its denominator is 0, for example KR3 and KR4 before any group has matched.
-- **Updating an existing database:** schema changes that must keep everyone's data go in `db/migrations/` as files that only add things and are safe to re-run. `npm run db:migrate` runs them all and prints the current KRs. `db/schema.sql` also includes them, so a fresh `npm run db:reset` gets the same result. `001_okr_metrics.sql` is already applied to Find Friends App.
+- **Updating an existing database:** schema changes that must keep everyone's other data go in `db/migrations/` as files that are safe to re-run. `npm run db:migrate` runs them all and prints the current KRs. `db/schema.sql` matches the result, so a fresh `npm run db:reset` ends up the same. `001_okr_metrics.sql` adds the OKR table and view; `002_drop_events.sql` removes the events feature (its two tables and their rows). Both are applied to Find Friends App.
 
 ## Tech Stack
 

@@ -4,18 +4,6 @@ const monthDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeri
 
 export const formatTime = (iso) => time.format(new Date(iso));
 
-export function formatCost(cents) {
-  if (!cents) return 'Free';
-  return cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;
-}
-
-// Date tile on events: { dow: "FRI", day: 3, isToday }
-export function dateTile(iso) {
-  const d = new Date(iso);
-  const isToday = d.toDateString() === new Date().toDateString();
-  return { dow: isToday ? 'TODAY' : weekday.format(d).toUpperCase(), day: d.getDate(), isToday };
-}
-
 // Chat list: "9:42 PM" today, "Tue" this week, "Sep 26" otherwise.
 export function formatChatTime(iso) {
   const d = new Date(iso);

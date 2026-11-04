@@ -3,12 +3,11 @@
 --   * 2 incoming likes to Tuesday Crew (Court Crew, Film Fridays) -> Accept demo
 --   * 1 existing match + chat: Tuesday Crew + Sunday Summit Club
 --   * Wednesday Volleyball is full (10/10) -> GROUP_FULL demo
--- Event times are relative to the day you seed, so "Going to" stays upcoming.
 
 BEGIN;
 
 TRUNCATE
-  meetups, group_event_attendance, events, messages, chat_participants, chats,
+  meetups, messages, chat_participants, chats,
   group_matches, group_likes, friendships, user_interests, interests,
   user_photos, group_memberships, friend_groups, users
   RESTART IDENTITY CASCADE;
@@ -168,25 +167,6 @@ INSERT INTO messages (chat_id, sender_user_id, body, created_at) VALUES
 INSERT INTO meetups (match_id, confirmed_by_user_id, created_at) VALUES
   (1, 1, now() - interval '1 day');
 
--- ---------------------------------------------------------------------------
--- Events (local Provo times, relative to today)
--- ---------------------------------------------------------------------------
-INSERT INTO events (id, title, place_name, starts_at, cost_cents, created_by_user_id) VALUES
-  (1, 'Board game night',      'Theo''s place',       ((current_date + 2) + time '20:00') AT TIME ZONE 'America/Denver', 0,    8),
-  (2, 'Sunrise hike — Y Trail','Trailhead lot',       ((current_date + 3) + time '06:30') AT TIME ZONE 'America/Denver', 0,    7),
-  (3, 'Pickleball open play',  'Rec center courts',   ((current_date + 1) + time '19:00') AT TIME ZONE 'America/Denver', 500,  13),
-  (4, 'Double feature night',  'Lena''s apartment',   ((current_date + 2) + time '19:00') AT TIME ZONE 'America/Denver', 0,    12),
-  (5, 'League night',          'Provo Rec Center',    ((current_date + 6) + time '19:30') AT TIME ZONE 'America/Denver', 300,  3),
-  (6, 'Taco crawl',            'Center St',           ((current_date + 5) + time '18:30') AT TIME ZONE 'America/Denver', 1500, 4);
-
-INSERT INTO group_event_attendance (group_id, event_id, added_by_user_id) VALUES
-  (3, 1, 8), (1, 1, 2),
-  (3, 2, 7),
-  (4, 3, 13),
-  (5, 4, 12),
-  (2, 5, 3),
-  (1, 6, 4);
-
 -- Explicit ids above don't advance identity sequences; catch them up.
 SELECT setval(pg_get_serial_sequence('users', 'id'),         (SELECT max(id) FROM users));
 SELECT setval(pg_get_serial_sequence('interests', 'id'),     (SELECT max(id) FROM interests));
@@ -194,6 +174,5 @@ SELECT setval(pg_get_serial_sequence('friend_groups', 'id'), (SELECT max(id) FRO
 SELECT setval(pg_get_serial_sequence('group_likes', 'id'),   (SELECT max(id) FROM group_likes));
 SELECT setval(pg_get_serial_sequence('group_matches', 'id'), (SELECT max(id) FROM group_matches));
 SELECT setval(pg_get_serial_sequence('chats', 'id'),         (SELECT max(id) FROM chats));
-SELECT setval(pg_get_serial_sequence('events', 'id'),        (SELECT max(id) FROM events));
 
 COMMIT;

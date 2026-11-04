@@ -1,24 +1,6 @@
-import { dateTile, formatCost, formatTime, plural } from '../format.js';
+import { plural } from '../format.js';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
-
-export function EventRow({ event }) {
-  const tile = dateTile(event.startsAt);
-  return (
-    <div className="event-row">
-      <div className={`date-tile ${tile.isToday ? 'date-tile--today' : ''}`}>
-        <span className="date-tile__dow">{tile.dow}</span>
-        <span className="date-tile__day">{tile.day}</span>
-      </div>
-      <div>
-        <div className="event-row__title">{event.title}</div>
-        <div className="event-row__meta">
-          {event.placeName} · {formatTime(event.startsAt)} · {formatCost(event.costCents)}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const MAX_OTHER_INTERESTS = 3;
 
@@ -73,13 +55,6 @@ export default function GroupCard({ group, position, total }) {
             </div>
           ))}
         </div>
-
-        {group.events.length > 0 && (
-          <>
-            <h3 className="section-label">Going to</h3>
-            {group.events.map((e) => <EventRow key={e.id} event={e} />)}
-          </>
-        )}
       </div>
     </article>
   );

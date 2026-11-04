@@ -14,10 +14,10 @@ export async function assertMember(db, groupId, userId) {
 }
 
 // Everything a group card shows: header, members with top 2 interests,
-// interests (flagged "shared" when the viewer group has them too) and upcoming events.
+// and interests (flagged "shared" when the viewer group has them too).
 export async function loadGroupCards(db, groupIds, { viewerGroupId = null, includeInviteCode = false } = {}) {
   if (!groupIds.length) return [];
-  const [groups, members, interests, events] = await Promise.all([
+  const [groups, members, interests] = await Promise.all([
     db.query(
       `SELECT g.id, g.name, g.city, g.status_text, g.photo_label, g.avatar_color, g.invite_code,
               (SELECT count(*) FROM group_memberships m WHERE m.group_id = g.id) AS member_count
@@ -41,13 +41,6 @@ export async function loadGroupCards(db, groupIds, { viewerGroupId = null, inclu
        ORDER BY shared DESC, s.member_count DESC, s.interest_name`,
       [groupIds, viewerGroupId],
     ),
-    db.query(
-      `SELECT a.group_id, e.id, e.title, e.place_name, e.starts_at, e.cost_cents
-       FROM group_event_attendance a JOIN events e ON e.id = a.event_id
-       WHERE a.group_id = ANY($1) AND e.starts_at > now() - interval '3 hours'
-       ORDER BY e.starts_at`,
-      [groupIds],
-    ),
   ]);
 
   const byGroup = (rows) => {
@@ -57,7 +50,6 @@ export async function loadGroupCards(db, groupIds, { viewerGroupId = null, inclu
   };
   const membersBy = byGroup(members.rows);
   const interestsBy = byGroup(interests.rows);
-  const eventsBy = byGroup(events.rows);
 
   const cards = new Map(groups.rows.map((g) => [g.id, {
     id: g.id,
@@ -82,9 +74,6 @@ export async function loadGroupCards(db, groupIds, { viewerGroupId = null, inclu
     })),
     interests: (interestsBy.get(g.id) ?? []).map((i) => ({
       id: i.interest_id, name: i.interest_name, memberCount: i.member_count, shared: i.shared,
-    })),
-    events: (eventsBy.get(g.id) ?? []).slice(0, 3).map((e) => ({
-      id: e.id, title: e.title, placeName: e.place_name, startsAt: e.starts_at, costCents: e.cost_cents,
     })),
   }]));
   // Keep the caller's order (recommendations arrive ranked).

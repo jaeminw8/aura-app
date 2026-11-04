@@ -21,9 +21,6 @@ erDiagram
     users |o--o{ messages : sends
     group_matches ||--o{ meetups : "met up"
     users |o--o{ meetups : confirms
-    users |o--o{ events : creates
-    friend_groups ||--o{ group_event_attendance : "going to"
-    events ||--o{ group_event_attendance : "attended by"
 
     users {
         bigint id PK
@@ -120,20 +117,5 @@ erDiagram
         bigint id PK
         bigint match_id FK
         bigint confirmed_by_user_id FK
-        timestamptz created_at
-    }
-    events {
-        bigint id PK
-        varchar title
-        varchar place_name
-        timestamptz starts_at
-        integer cost_cents
-        bigint created_by_user_id FK
-        timestamptz created_at
-    }
-    group_event_attendance {
-        bigint group_id PK, FK
-        bigint event_id PK, FK
-        bigint added_by_user_id FK
         timestamptz created_at
     }
