@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import Avatar, { GroupPair, GroupPairSkeleton } from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
@@ -9,6 +9,7 @@ import { usePoll } from '../usePoll.js';
 
 const POLL_MS = 5000;
 const NEAR_BOTTOM_PX = 120;
+const MAX_RECEIPT_AVATARS = 5;
 const CHAT_GONE = ['NOT_IN_CHAT', 'CHAT_NOT_FOUND'];
 // Placeholder messages while a chat opens: theirs (with the sender's avatar on the first of a run) and yours.
 const BUBBLE_PLACEHOLDERS = [
@@ -26,6 +27,22 @@ function mergeMessages(list, incoming) {
   const ids = new Set(list.map((m) => m.id));
   const added = incoming.filter((m) => !ids.has(m.id));
   return added.length ? [...list, ...added].sort((a, b) => a.id - b.id) : list;
+}
+
+// Who to show under which message. Each person goes under the newest message on screen that they've
+// read, unless they sent it. "Delivered" goes under your latest message until someone else reads it.
+// The client and API deploy separately, so `reads` can be missing for a moment during a deploy.
+function readReceipts(messages, reads = []) {
+  const readersByMessage = new Map();
+  for (const { messageId, user } of reads) {
+    const message = messages.findLast((m) => m.id <= messageId);
+    if (message && message.sender?.id !== user.id) {
+      readersByMessage.set(message.id, [...(readersByMessage.get(message.id) ?? []), user]);
+    }
+  }
+  const myLatest = messages.findLast((m) => m.mine);
+  const isRead = myLatest && reads.some((r) => r.messageId >= myLatest.id);
+  return { readersByMessage, deliveredId: myLatest && !isRead ? myLatest.id : null };
 }
 
 // Phones: a full screen with a back arrow. Desktop: `embedded` in the Messages split view,
@@ -69,13 +86,14 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
   // A blip (network, 5xx) keeps the chat on screen and retries on the next tick.
   const poll = async () => {
     try {
-      const { messages, hasMore } = await api(`/chats/${chatId}/messages?after=${cursor.current}`);
-      if (!messages.length) return false;
+      const { messages, hasMore, reads } = await api(`/chats/${chatId}/messages?after=${cursor.current}`);
       cursor.current = Math.max(cursor.current, newestId(messages));
       setData((d) => {
         const merged = mergeMessages(d.messages, messages);
-        return merged === d.messages ? d : { ...d, messages: merged };
+        const nextReads = JSON.stringify(reads) === JSON.stringify(d.reads) ? d.reads : reads;
+        return merged === d.messages && nextReads === d.reads ? d : { ...d, messages: merged, reads: nextReads };
       });
+      if (!messages.length) return false;
       activityRef.current?.(); // the server marked it read; the desktop list re-sorts
       return hasMore;
     } catch (err) {
@@ -97,6 +115,14 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
     if (first || atBottom.current || sentNow) bottom.current?.scrollIntoView({ block: 'end' });
     else setUnseen(true);
   }, [data]);
+
+  // A receipt appearing under the last message makes the list taller; stay at the bottom if you were.
+  const reads = data?.reads;
+  useEffect(() => {
+    if (reads && atBottom.current) bottom.current?.scrollIntoView({ block: 'end' });
+  }, [reads]);
+  const shownMessages = data?.messages;
+  const receipts = useMemo(() => (shownMessages ? readReceipts(shownMessages, reads) : null), [shownMessages, reads]);
 
   // The button unmounts once you're at the newest message; keep keyboard focus in the chat.
   const hideJump = () => {
@@ -184,6 +210,8 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
                 <div className="msg__bubble">{m.body}</div>
                 <span className="msg__time">{formatTime(m.createdAt)}</span>
               </div>
+              {receipts.readersByMessage.has(m.id) && <ReadBy readers={receipts.readersByMessage.get(m.id)} mine={m.mine} />}
+              {receipts.deliveredId === m.id && <div className="receipts receipts--mine" aria-live="off">Delivered</div>}
             </div>
           );
         })}
@@ -227,6 +255,19 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
           <Icon name="send" />
         </button>
       </form>
+    </div>
+  );
+}
+
+// aria-live="off": the log announces new messages, not every time someone reads one.
+function ReadBy({ readers, mine }) {
+  const names = readers.map((r) => r.firstName).join(', ');
+  const extra = readers.length - MAX_RECEIPT_AVATARS;
+  return (
+    <div className={`receipts ${mine ? 'receipts--mine' : ''}`} aria-live="off" title={`Read by ${names}`}>
+      <span className="sr-only">Read by {names}</span>
+      {readers.slice(0, MAX_RECEIPT_AVATARS).map((r) => <Avatar key={r.id} initials={r.initials} color={r.avatarColor} size={20} />)}
+      {extra > 0 && <span aria-hidden="true">+{extra}</span>}
     </div>
   );
 }

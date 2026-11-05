@@ -11,6 +11,7 @@
     "verify:slice": "node scripts/verify-slice.js",
     "verify:decline": "node scripts/verify-decline.js",
     "verify:chat": "node scripts/verify-chat.js",
+    "verify:receipts": "node scripts/verify-receipts.js",
     "verify:messages": "node scripts/verify-messages.js",
     "db:check": "node scripts/db-check.js"
   },
