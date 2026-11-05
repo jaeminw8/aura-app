@@ -45,13 +45,36 @@ const formatMessage = (m, userId) => ({
     : null,
 });
 
+// Read receipts: the newest message each other participant has read. The message is found in SQL
+// because timestamps have microseconds that JS dates drop. last_read_at starts equal to joined_at,
+// so someone who hasn't opened the chat since joining hasn't read the messages from before they joined.
+async function loadReads(chatId, userId) {
+  const { rows } = await query(
+    `SELECT u.id, u.first_name, u.last_name, u.avatar_color, last_read.id AS message_id
+     FROM chat_participants cp
+     JOIN users u ON u.id = cp.user_id
+     CROSS JOIN LATERAL (
+       SELECT m.id FROM messages m
+       WHERE m.chat_id = cp.chat_id AND m.created_at <= cp.last_read_at
+       ORDER BY m.created_at DESC, m.id DESC LIMIT 1) last_read
+     WHERE cp.chat_id = $1 AND cp.user_id <> $2 AND cp.last_read_at > cp.joined_at
+     ORDER BY u.first_name, u.id`,
+    [chatId, userId],
+  );
+  return rows.map((r) => ({
+    messageId: r.message_id,
+    user: { id: r.id, firstName: r.first_name, initials: userInitials(r.first_name, r.last_name), avatarColor: r.avatar_color },
+  }));
+}
+
 // An open chat polls with ?after=<last message id> (0 if it has none): newer messages only,
-// oldest first, 200 at a time. Marks the chat read only when something new came back.
+// oldest first, 200 at a time, plus the current read receipts. Marks the chat read only when
+// something new came back.
 async function newerMessages(chatId, userId, rawAfter) {
   const after = typeof rawAfter === 'string' && /^\d+$/.test(rawAfter) ? Number(rawAfter) : NaN;
   if (!Number.isSafeInteger(after)) throw badRequest('INVALID_ID', 'after must be a message id (a whole number, 0 or more).');
   await participantGroup(chatId, userId);
-  const { rows } = await query(
+  const [{ rows }, reads] = await Promise.all([query(
     `WITH newer AS (
        SELECT m.id, m.body, m.created_at, m.sender_user_id, u.first_name, u.last_name, u.avatar_color
        FROM messages m LEFT JOIN users u ON u.id = m.sender_user_id
@@ -61,8 +84,8 @@ async function newerMessages(chatId, userId, rawAfter) {
        WHERE chat_id = $1 AND user_id = $2 AND EXISTS (SELECT 1 FROM newer))
      SELECT * FROM newer ORDER BY id`,
     [chatId, userId, after],
-  );
-  return { messages: rows.slice(0, 200).map((m) => formatMessage(m, userId)), hasMore: rows.length > 200 };
+  ), loadReads(chatId, userId)]);
+  return { messages: rows.slice(0, 200).map((m) => formatMessage(m, userId)), hasMore: rows.length > 200, reads };
 }
 
 // Opening a chat returns its latest 200 messages and marks it read.
@@ -70,7 +93,7 @@ router.get('/chats/:id/messages', requireGroup, async (req, res) => {
   const chatId = parseId(req.params.id, 'chat id');
   if (req.query.after !== undefined) return res.json(await newerMessages(chatId, req.user.id, req.query.after));
   const myGroupId = await participantGroup(chatId, req.user.id);
-  const [[chat], messages, participants] = await Promise.all([
+  const [[chat], messages, participants, reads] = await Promise.all([
     loadChatRows(pool, req.user.id, myGroupId, { chatIds: [chatId], view: 'any' }),
     query(
       `SELECT * FROM (
@@ -86,6 +109,7 @@ router.get('/chats/:id/messages', requireGroup, async (req, res) => {
        WHERE cp.chat_id = $1 ORDER BY cp.group_id = $2 DESC, u.first_name`,
       [chatId, myGroupId],
     ),
+    loadReads(chatId, req.user.id),
   ]);
   await query('UPDATE chat_participants SET last_read_at = now() WHERE chat_id = $1 AND user_id = $2', [chatId, req.user.id]);
   res.json({
@@ -99,6 +123,7 @@ router.get('/chats/:id/messages', requireGroup, async (req, res) => {
       groupId: p.group_id,
     })),
     messages: messages.rows.map((m) => formatMessage(m, req.user.id)),
+    reads,
   });
 });
 
