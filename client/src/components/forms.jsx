@@ -169,46 +169,6 @@ export function CreateOrJoinForm({ onDone, defaultTab = 'create' }) {
   );
 }
 
-function defaultEventTime() {
-  const d = new Date(Date.now() + 2 * 86400000);
-  d.setHours(19, 0, 0, 0);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-export function AddEventForm({ group, onDone }) {
-  const [v, setV] = useState({ title: '', placeName: '', startsAt: defaultEventTime(), cost: '' });
-  const { busy, error, run } = useAsyncAction();
-  const set = (k) => (e) => setV({ ...v, [k]: e.target.value });
-  const submit = (e) => {
-    e.preventDefault();
-    run(async () => {
-      await api(`/groups/${group.id}/events`, {
-        method: 'POST',
-        body: {
-          title: v.title,
-          placeName: v.placeName,
-          startsAt: new Date(v.startsAt).toISOString(),
-          costCents: Math.round((Number(v.cost) || 0) * 100),
-        },
-      });
-      await onDone();
-    });
-  };
-  return (
-    <form onSubmit={submit}>
-      <FormError error={error} />
-      <Field label="What"><input value={v.title} onChange={set('title')} maxLength={100} required placeholder="Board game night" /></Field>
-      <Field label="Where"><input value={v.placeName} onChange={set('placeName')} maxLength={100} required placeholder="Theo's place" /></Field>
-      <div className="field-row field-row--wide-first">
-        <Field label="When"><input type="datetime-local" value={v.startsAt} onChange={set('startsAt')} required /></Field>
-        <Field label="Cost ($)"><input type="number" inputMode="decimal" min={0} step="0.01" value={v.cost} onChange={set('cost')} placeholder="Free" /></Field>
-      </div>
-      <button className="btn btn--primary btn--block" disabled={busy}>{busy ? 'Adding…' : `Add to ${group.name}`}</button>
-    </form>
-  );
-}
-
 export function InviteFriends({ group, onChanged }) {
   const [friends, setFriends] = useState(null);
   const [copied, setCopied] = useState(false);

@@ -1,5 +1,5 @@
 // Runs every db/migrations/*.sql file, in name order, against DATABASE_URL (from server/.env).
-// Migrations only add to the database (and are safe to re-run), so unlike db:reset this keeps everyone's data.
+// Migrations are safe to re-run and, unlike db:reset, keep everyone's data (apart from what one deliberately drops, like 002's events tables).
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';

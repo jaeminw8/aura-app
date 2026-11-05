@@ -396,25 +396,6 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
 }
 .member > div { min-width: 0; }
 
-.event-row { display: flex; align-items: center; gap: 14px; padding: 6px 0; }
-.date-tile {
-  flex: none;
-  width: 52px;
-  height: 56px;
-  border-radius: 14px;
-  background: var(--chip-gray);
-  display: grid;
-  place-content: center;
-  text-align: center;
-  line-height: 1.05;
-}
-.date-tile__dow { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: var(--muted); }
-.date-tile__day { font-size: 22px; font-weight: 800; font-family: var(--font-head); }
-.date-tile--today { background: var(--warm-soft); }
-.date-tile--today .date-tile__dow, .date-tile--today .date-tile__day { color: var(--warm-ink); }
-.event-row__title { font-weight: 700; }
-.event-row__meta { color: var(--muted); font-size: 15px; }
-
 .decide-bar {
   position: sticky;
   bottom: var(--tabbar-h);
@@ -655,18 +636,6 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
 .mygroup__name { font-family: var(--font-head); font-size: 21px; font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .mygroup__meta { color: var(--muted); font-size: 15px; }
 .mygroup__people { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
-.mygroup__event {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--ground);
-  border-radius: 14px;
-  padding: 12px 14px;
-  font-size: 15px;
-  margin-bottom: 14px;
-}
-.mygroup__event strong { font-weight: 700; }
-.mygroup__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* ---------- Sheets & forms ---------- */
 .sheet-backdrop {
@@ -707,7 +676,6 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
 .field textarea { min-height: 96px; resize: vertical; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); outline: none; }
 .field-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
-.field-row--wide-first { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
 .field input[type='datetime-local'] { font-size: 15px; padding: 10px; }
 .form-error {
   background: #fdeceb;

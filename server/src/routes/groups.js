@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { pool, query, withTransaction } from '../db.js';
-import { badRequest, conflict, notFound } from '../errors.js';
+import { conflict, notFound } from '../errors.js';
 import { randomPastel } from '../lib/format.js';
 import { assertMember, loadGroupCards, loadRelationshipStats } from '../lib/groups.js';
 import { requireCompleteProfile } from '../lib/profile.js';
-import { parseId, readInt, readText } from '../lib/validate.js';
+import { parseId, readText } from '../lib/validate.js';
 
 const router = Router();
 
@@ -129,36 +129,6 @@ router.delete('/groups/:id/members/me', async (req, res) => {
     );
   });
   res.status(204).end();
-});
-
-router.post('/groups/:id/events', async (req, res) => {
-  const groupId = parseId(req.params.id, 'group id');
-  await assertMember(pool, groupId, req.user.id);
-  const title = readText(req.body.title, 'Title', { max: 100, required: true });
-  const placeName = readText(req.body.placeName, 'Place', { max: 100, required: true });
-  const costCents = readInt(req.body.costCents ?? 0, 'Cost', { min: 0, max: 100000 });
-  const startsAt = new Date(req.body.startsAt);
-  if (!req.body.startsAt || Number.isNaN(startsAt.getTime())) {
-    throw badRequest('VALIDATION_ERROR', 'Pick a date and time for the event.');
-  }
-  if (startsAt.getTime() < Date.now() - 60 * 60 * 1000) {
-    throw badRequest('EVENT_IN_PAST', 'Events have to be in the future.');
-  }
-  const event = await withTransaction(async (client) => {
-    const { rows: [e] } = await client.query(
-      `INSERT INTO events (title, place_name, starts_at, cost_cents, created_by_user_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id, title, place_name, starts_at, cost_cents`,
-      [title, placeName, startsAt, costCents, req.user.id],
-    );
-    await client.query(
-      'INSERT INTO group_event_attendance (group_id, event_id, added_by_user_id) VALUES ($1, $2, $3)',
-      [groupId, e.id, req.user.id],
-    );
-    return e;
-  });
-  res.status(201).json({
-    event: { id: event.id, title: event.title, placeName: event.place_name, startsAt: event.starts_at, costCents: event.cost_cents },
-  });
 });
 
 export default router;
