@@ -6,6 +6,7 @@
 // It really accepts a request, so run npm run db:reset afterwards to restore the demo data.
 import pg from 'pg';
 import '../src/env.js';
+import { authHeaders } from './lib/session.js';
 
 const API = `http://localhost:${process.env.API_PORT || 4000}/api`;
 const USER_ID = Number(process.argv[2] ?? 1);
@@ -17,7 +18,7 @@ const check = (label, ok, detail = '') => {
 };
 
 async function call(path, method = 'GET') {
-  const res = await fetch(`${API}${path}`, { method, headers: { 'X-User-Id': String(USER_ID) } });
+  const res = await fetch(`${API}${path}`, { method, headers: await authHeaders(USER_ID) });
   return { status: res.status, body: await res.json() };
 }
 

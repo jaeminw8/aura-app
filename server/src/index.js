@@ -2,7 +2,8 @@ import express from 'express';
 import './env.js';
 import { pool } from './db.js';
 import { errorHandler, notFound } from './errors.js';
-import { identify } from './middleware/auth.js';
+import { authenticate, identify } from './middleware/auth.js';
+import accountRouter from './routes/account.js';
 import chatsRouter from './routes/chats.js';
 import groupsRouter from './routes/groups.js';
 import matchingRouter from './routes/matching.js';
@@ -21,7 +22,7 @@ app.use((req, res, next) => {
     res.set({
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Max-Age': '600',
       Vary: 'Origin',
     });
@@ -46,7 +47,9 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.use('/api', publicRouter);
-app.use('/api', identify); // everything below needs X-User-Id
+app.use('/api', authenticate); // everything below needs a Supabase session (401 otherwise)
+app.use('/api', accountRouter);
+app.use('/api', identify); // ...and a users row for that account (403 NO_PROFILE otherwise)
 app.use('/api', meRouter);
 app.use('/api', groupsRouter);
 app.use('/api', matchingRouter);

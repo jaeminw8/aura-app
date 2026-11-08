@@ -8,6 +8,7 @@
 // npm run db:reset afterwards to restore the demo data.
 import pg from 'pg';
 import '../src/env.js';
+import { authHeaders, DEMO_ACCOUNTS } from './lib/session.js';
 
 const API = `http://localhost:${process.env.API_PORT || 4000}/api`;
 const USER_ID = Number(process.argv[2] ?? 1);
@@ -21,7 +22,7 @@ const check = (label, ok, detail = '') => {
 async function call(path, { method = 'GET', body, as = USER_ID } = {}) {
   const res = await fetch(`${API}${path}`, {
     method,
-    headers: { 'X-User-Id': String(as), ...(body && { 'Content-Type': 'application/json' }) },
+    headers: { ...(await authHeaders(as)), ...(body && { 'Content-Type': 'application/json' }) },
     body: body && JSON.stringify(body),
   });
   return { status: res.status, body: await res.json() };
@@ -41,8 +42,8 @@ try {
   if (!chat) throw new Error(`${groupName} has no chats. Run npm run db:reset first.`);
   const opened = await call(`/chats/${chat.id}/messages`);
   const lastId = Math.max(0, ...opened.body.messages.map((m) => m.id));
-  const other = opened.body.participants.find((p) => p.groupId === chat.otherGroup.id);
-  if (!other) throw new Error(`Nobody from ${chat.otherGroup.name} is in chat #${chat.id}.`);
+  const other = opened.body.participants.find((p) => p.groupId === chat.otherGroup.id && DEMO_ACCOUNTS[p.id]);
+  if (!other) throw new Error(`Nobody from ${chat.otherGroup.name} in chat #${chat.id} has a demo login (README "Demo accounts").`);
   console.log(`Chat #${chat.id} "${chat.name}", newest message #${lastId}; ${other.firstName} ${other.lastName} posts for ${chat.otherGroup.name}\n`);
 
   const text = `verify:chat ${new Date().toISOString()}`;

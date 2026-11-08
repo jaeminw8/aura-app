@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, readStoredUserId, setApiUser, storeUserId } from './api.js';
+import { api } from './api.js';
 import { Loader } from './components/Loading.jsx';
-import SignedInBar from './components/SignedInBar.jsx';
 import TabBar, { SideNav } from './components/TabBar.jsx';
 import { useToast } from './components/ui.jsx';
+import { FinishAccount, SignIn, SignUp } from './screens/Auth.jsx';
 import ChatScreen from './screens/ChatScreen.jsx';
 import FindScreen from './screens/FindScreen.jsx';
 import MessagesScreen from './screens/MessagesScreen.jsx';
-import { NoGroupGate, ProfileSetup, Welcome } from './screens/Onboarding.jsx';
+import { NoGroupGate, ProfileSetup } from './screens/Onboarding.jsx';
 import ProfileScreen from './screens/ProfileScreen.jsx';
+import { supabase } from './supabase.js';
 
-// Hash routes: #/find, #/messages, #/messages/:chatId, #/profile
+// Hash routes: #/find, #/messages, #/messages/:chatId, #/profile; signed out: #/signup (default), #/signin
 function parseRoute() {
   const [, tab = 'find', id] = window.location.hash.split('/');
   if (tab === 'messages' && id) return { tab: 'messages', chatId: Number(id) };
+  if (tab === 'signin' || tab === 'signup') return { tab, auth: true };
   return { tab: ['find', 'messages', 'profile'].includes(tab) ? tab : 'find' };
 }
 
@@ -49,45 +51,75 @@ export default function App() {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const toast = useToast();
   const route = useRoute();
-  const [userId, setUserId] = useState(() => {
-    const id = readStoredUserId();
-    setApiUser(id);
-    return id;
-  });
+  // undefined while Supabase restores a saved session, then the session or null (signed out).
+  const [session, setSession] = useState(undefined);
   const [me, setMe] = useState(null);
+  const [needsAccount, setNeedsAccount] = useState(false);
   const [loadError, setLoadError] = useState(null);
-  const userRef = useRef(userId);
+  const authUserId = session?.user.id ?? null;
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
-  const signIn = useCallback((id) => {
-    storeUserId(id);
-    setApiUser(id);
-    userRef.current = id;
-    setMe(null);
-    setLoadError(null);
-    setUserId(id);
-    if (id) window.location.hash = '#/find';
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    window.location.hash = '#/signin';
   }, []);
 
   const refreshMe = useCallback(async () => {
-    const forUser = userRef.current;
+    const forUser = sessionRef.current?.user.id;
     if (!forUser) return null;
+    const stillCurrent = () => sessionRef.current?.user.id === forUser;
     try {
       const data = await api('/me');
-      if (userRef.current === forUser) {
+      if (stillCurrent()) {
         setMe(data);
+        setNeedsAccount(false);
         setLoadError(null);
       }
       return data;
     } catch (err) {
-      if (err.code === 'UNKNOWN_USER' || err.code === 'NOT_SIGNED_IN') signIn(null);
-      else setLoadError(err);
-      return null;
+      if (!stillCurrent()) return null;
+      if (err.code !== 'NO_PROFILE') {
+        setLoadError(err);
+        return null;
+      }
+      // New account: create its users row from the names given at sign up.
+      const { firstName, lastName, city } = sessionRef.current.user.user_metadata ?? {};
+      if (!(firstName && lastName && city)) {
+        setNeedsAccount(true);
+        return null;
+      }
+      try {
+        await api('/users', { method: 'POST', body: { firstName, lastName, city } });
+      } catch (createErr) {
+        // ACCOUNT_EXISTS: another tab (or React's double effect) created it first; that's fine.
+        if (createErr.code !== 'ACCOUNT_EXISTS') {
+          setNeedsAccount(true);
+          return null;
+        }
+      }
+      return refreshMe();
     }
-  }, [signIn]);
+  }, []);
 
+  // A different account (or none): start over with that account's data.
   useEffect(() => {
-    if (userId) refreshMe();
-  }, [userId, refreshMe]);
+    setMe(null);
+    setNeedsAccount(false);
+    setLoadError(null);
+    if (authUserId) refreshMe();
+  }, [authUserId, refreshMe]);
+
+  // Leave #/signin or #/signup once signed in.
+  useEffect(() => {
+    if (authUserId && route.auth) window.location.hash = '#/find';
+  }, [authUserId, route.auth]);
 
   // Server says "no group" / "profile incomplete" from any screen: re-check the gate.
   useEffect(() => {
@@ -108,8 +140,12 @@ export default function App() {
   }, [refreshMe, toast]);
 
   let content;
-  if (!userId) {
-    content = <Welcome onSignedIn={signIn} />;
+  if (session === undefined) {
+    content = <Loader label="Loading…" />;
+  } else if (!session) {
+    content = route.tab === 'signin' ? <SignIn /> : <SignUp />;
+  } else if (needsAccount) {
+    content = <FinishAccount email={session.user.email} onDone={refreshMe} onSignOut={signOut} />;
   } else if (!me) {
     content = loadError ? (
       <div className="gate">
@@ -133,7 +169,7 @@ export default function App() {
       </div>
     );
   } else {
-    const props = { me, setMe, refreshMe, onSwitchGroup: switchGroup, isDesktop };
+    const props = { me, setMe, refreshMe, onSwitchGroup: switchGroup, onSignOut: signOut, isDesktop };
     const screen = (
       <>
         {route.tab === 'find' && <FindScreen {...props} />}
@@ -145,7 +181,8 @@ export default function App() {
       return (
         <div className="frame frame--desktop">
           <SideNav current={route.tab} unread={me.unreadMessages}>
-            <SignedInBar userId={userId} activeGroupId={me.activeGroupId} onChange={signIn} stacked />
+            <p className="sidebar__account">Signed in as <strong>{session.user.email}</strong></p>
+            <button type="button" className="btn btn--outline btn--block" onClick={signOut}>Sign out</button>
           </SideNav>
           <main className="main">{screen}</main>
         </div>
@@ -161,7 +198,6 @@ export default function App() {
 
   return (
     <div className="frame">
-      {userId && <SignedInBar userId={userId} activeGroupId={me?.activeGroupId} onChange={signIn} />}
       {content}
     </div>
   );

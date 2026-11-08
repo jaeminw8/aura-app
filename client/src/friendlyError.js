@@ -11,6 +11,8 @@ const FRIENDLY = {
   CHAT_NOT_FOUND: "This chat doesn't exist anymore.",
   ALREADY_MATCHED: "You're already matched with this group. Look for your chat with them below.",
   LIKE_NOT_FOUND: 'That request is no longer available.',
+  NOT_SIGNED_IN: 'Sign in to keep going.',
+  SESSION_EXPIRED: 'You were signed out. Sign in again to keep going.',
 };
 
 export function friendlyError(err) {

@@ -17,6 +17,8 @@ services:
         sync: false # paste the Session pooler URI in the dashboard; never commit it
       - key: CORS_ORIGIN
         value: https://aura-is401.onrender.com
+      - key: SUPABASE_URL # public: the API checks sign-ins against this project's published keys
+        value: https://rcyafwgjnnlgnakwkksi.supabase.co
       - key: NODE_VERSION
         value: "22"
 
@@ -30,5 +32,11 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://aura-is401-api.onrender.com
+      # Supabase Auth for sign up / sign in. Both are public by design (row-level security
+      # blocks the app tables from this key), and the same values are in client/.env.development.
+      - key: VITE_SUPABASE_URL
+        value: https://rcyafwgjnnlgnakwkksi.supabase.co
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_Cgiby1pYgm1olb5Na1s-HQ_wzyVQAiC
       - key: NODE_VERSION
         value: "22"

@@ -8,6 +8,7 @@
 // messages and check they're saved trimmed and without control characters (npm run verify:messages -- --post).
 import pg from 'pg';
 import '../src/env.js';
+import { authHeaders } from './lib/session.js';
 
 const API = `http://localhost:${process.env.API_PORT || 4000}/api`;
 const USER_ID = 1;
@@ -22,7 +23,7 @@ const check = (label, ok, detail = '') => {
 async function post(chatId, payload) {
   const res = await fetch(`${API}/chats/${chatId}/messages`, {
     method: 'POST',
-    headers: { 'X-User-Id': String(USER_ID), 'Content-Type': 'application/json' },
+    headers: { ...(await authHeaders(USER_ID)), 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
   return { status: res.status, body: await res.json() };

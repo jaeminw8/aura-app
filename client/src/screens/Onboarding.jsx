@@ -1,59 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { api } from '../api.js';
-import Avatar from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
 import { AddInterestForm, CreateOrJoinForm, ProfileFields, profileFormValue, profilePatch } from '../components/forms.jsx';
-import { Loader } from '../components/Loading.jsx';
-import { Field, FormError, useAsyncAction } from '../components/ui.jsx';
-
-// Step 0: no one is "signed in" yet. Pick a seeded user or sign up.
-export function Welcome({ onSignedIn }) {
-  const [users, setUsers] = useState(null);
-  const [form, setForm] = useState({ firstName: '', lastName: '', city: '' });
-  const { busy, error, run } = useAsyncAction();
-  useEffect(() => {
-    api('/users').then((d) => setUsers(d.users)).catch(() => setUsers([]));
-  }, []);
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  const signUp = (e) => {
-    e.preventDefault();
-    run(async () => onSignedIn((await api('/users', { method: 'POST', body: form })).user.id));
-  };
-  return (
-    <div className="gate">
-      <div className="gate__hero">
-        <span className="wordmark">aura</span>
-        <p>Find other friend groups to hang out with.</p>
-      </div>
-      <section className="card">
-        <h2 className="card__title">Signed in as…</h2>
-        <p className="muted-small" style={{ marginTop: -6 }}>Prototype: pick a sample user (no password).</p>
-        {users === null && <Loader label="Loading users…" compact />}
-        {users?.map((u) => (
-          <button key={u.id} type="button" className="user-pick" onClick={() => onSignedIn(u.id)}>
-            <Avatar initials={u.initials} color={u.avatarColor} size={40} />
-            <span>
-              <span className="user-pick__name">{u.firstName} {u.lastName}</span><br />
-              <span className="user-pick__group">{u.activeGroupName ?? 'No group yet'}</span>
-            </span>
-          </button>
-        ))}
-      </section>
-      <section className="card">
-        <h2 className="card__title">New here? Sign up</h2>
-        <form onSubmit={signUp}>
-          <FormError error={error} />
-          <div className="field-row">
-            <Field label="First name"><input value={form.firstName} onChange={set('firstName')} required maxLength={50} /></Field>
-            <Field label="Last name"><input value={form.lastName} onChange={set('lastName')} required maxLength={50} /></Field>
-          </div>
-          <Field label="City"><input value={form.city} onChange={set('city')} required maxLength={80} placeholder="Provo, UT" /></Field>
-          <button className="btn btn--primary btn--block" disabled={busy}>{busy ? 'Creating…' : 'Create account'}</button>
-        </form>
-      </section>
-    </div>
-  );
-}
+import { FormError, useAsyncAction } from '../components/ui.jsx';
 
 const MISSING_LABELS = {
   bio: 'a bio', photos: 'at least 1 photo', interests: 'at least 1 interest', age: 'your age',

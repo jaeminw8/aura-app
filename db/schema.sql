@@ -39,6 +39,8 @@ CREATE TABLE users (
   personality_traits  text[]       NOT NULL DEFAULT '{}' CHECK (cardinality(personality_traits) <= 5),
   avatar_color        char(7)      NOT NULL DEFAULT '#FDDCCB' CHECK (avatar_color ~ '^#[0-9A-Fa-f]{6}$'),
   active_group_id     bigint,      -- FK added below, once group_memberships exists
+  -- The Supabase Auth account that signs in as this user (NULL for seeded users without a demo login).
+  auth_user_id        uuid         UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at          timestamptz  NOT NULL DEFAULT now()
 );
 

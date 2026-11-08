@@ -13,11 +13,13 @@
     "verify:chat": "node scripts/verify-chat.js",
     "verify:receipts": "node scripts/verify-receipts.js",
     "verify:messages": "node scripts/verify-messages.js",
-    "db:check": "node scripts/db-check.js"
+    "db:check": "node scripts/db-check.js",
+    "db:demo-accounts": "node scripts/demo-accounts.js"
   },
   "dependencies": {
     "dotenv": "^17.2.0",
     "express": "^5.2.1",
+    "jose": "^6.2.16",
     "pg": "^8.16.0"
   }
 }

@@ -1,8 +1,8 @@
-// Thin fetch wrapper. Every request carries the "Signed in as" user in X-User-Id.
-const STORAGE_KEY = 'aura.userId';
+// Thin fetch wrapper. Every request carries the Supabase session as a Bearer token.
+import { supabase } from './supabase.js';
+
 // Hosted builds call the API on its own origin (set at build time); locally Vite proxies /api.
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
-let currentUserId = null;
 
 export class ApiError extends Error {
   constructor(status, code, message, details) {
@@ -13,36 +13,16 @@ export class ApiError extends Error {
   }
 }
 
-export function readStoredUserId() {
-  try {
-    const id = Number(localStorage.getItem(STORAGE_KEY));
-    return Number.isInteger(id) && id > 0 ? id : null;
-  } catch {
-    return null;
-  }
-}
-
-export function storeUserId(id) {
-  try {
-    if (id) localStorage.setItem(STORAGE_KEY, String(id));
-    else localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Private mode etc.: the session just won't survive a refresh.
-  }
-}
-
-export function setApiUser(id) {
-  currentUserId = id;
-}
-
 export async function api(path, { method = 'GET', body } = {}) {
+  // getSession() refreshes the access token first when it's about to expire.
+  const { data: { session } } = await supabase.auth.getSession();
   let res;
   try {
     res = await fetch(`${API_BASE}/api${path}`, {
       method,
       headers: {
         ...(body !== undefined && { 'Content-Type': 'application/json' }),
-        ...(currentUserId && { 'X-User-Id': String(currentUserId) }),
+        ...(session && { Authorization: `Bearer ${session.access_token}` }),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
@@ -60,9 +40,11 @@ export async function api(path, { method = 'GET', body } = {}) {
       data?.error?.details,
     );
     // The onboarding gate listens for these and re-checks the user's status.
-    if (['NO_GROUP', 'PROFILE_INCOMPLETE', 'UNKNOWN_USER'].includes(err.code)) {
+    if (['NO_GROUP', 'PROFILE_INCOMPLETE', 'NO_PROFILE'].includes(err.code)) {
       window.dispatchEvent(new CustomEvent('aura:gate', { detail: err.code }));
     }
+    // The server no longer accepts this session (expired or revoked): sign out locally.
+    if (res.status === 401) supabase.auth.signOut({ scope: 'local' });
     throw err;
   }
   return data;
