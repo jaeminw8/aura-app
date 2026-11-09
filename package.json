@@ -21,6 +21,7 @@
     "verify:decline": "npm run verify:decline -w server",
     "verify:chat": "npm run verify:chat -w server",
     "verify:receipts": "npm run verify:receipts -w server",
+    "verify:typing": "npm run verify:typing -w server",
     "verify:messages": "npm run verify:messages -w server --"
   },
   "devDependencies": {

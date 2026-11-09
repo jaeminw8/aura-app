@@ -8,6 +8,10 @@ import { canRetry, friendlyError } from '../friendlyError.js';
 import { usePoll } from '../usePoll.js';
 
 const POLL_MS = 5000;
+// While someone is typing the chat polls faster, and your composer pings at most this often. The
+// server shows a ping for 5s, so a poll always lands before a steady typist's last ping runs out.
+const POLL_WHILE_TYPING_MS = 2000;
+const TYPING_PING_MS = 1000;
 const NEAR_BOTTOM_PX = 120;
 const MAX_RECEIPT_AVATARS = 5;
 const CHAT_GONE = ['NOT_IN_CHAT', 'CHAT_NOT_FOUND'];
@@ -45,6 +49,17 @@ function readReceipts(messages, reads = []) {
   return { readersByMessage, deliveredId: myLatest && !isRead ? myLatest.id : null };
 }
 
+// The API sends how long each person's typing lasts unless they keep going; this client counts that down.
+const typingDeadlines = (typing = []) => typing.map((t) => ({ user: t.user, until: Date.now() + t.msLeft }));
+
+// "Avery is typing…", "Avery and Maya are typing…", "Avery, Maya and 2 others are typing…"
+function typingText(names) {
+  if (!names.length) return '';
+  const shown = names.length > 3 ? [...names.slice(0, 2), plural(names.length - 2, 'other')] : names;
+  const list = shown.length === 1 ? shown[0] : `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}`;
+  return `${list} ${names.length === 1 ? 'is' : 'are'} typing…`;
+}
+
 // Phones: a full screen with a back arrow. Desktop: `embedded` in the Messages split view,
 // calling onActivity after it marks the chat read or sends, so the chat list can refresh.
 export default function ChatScreen({ chatId, refreshMe, embedded = false, onActivity }) {
@@ -56,6 +71,8 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
   const [sendError, setSendError] = useState(null);
   const composer = useRef(null);
   const [unseen, setUnseen] = useState(false);
+  const [typers, setTypers] = useState([]); // others who are typing: { user, until }
+  const lastTypingPing = useRef(0); // when your composer last pinged; 0 = you're not shown as typing
   const bottom = useRef(null);
   const log = useRef(null);
   const jump = useRef(null);
@@ -70,6 +87,7 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
       const result = await api(`/chats/${chatId}/messages`);
       cursor.current = newestId(result.messages);
       setData(result);
+      setTypers(typingDeadlines(result.typing));
     } catch (err) {
       setError(err);
     }
@@ -86,8 +104,9 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
   // A blip (network, 5xx) keeps the chat on screen and retries on the next tick.
   const poll = async () => {
     try {
-      const { messages, hasMore, reads } = await api(`/chats/${chatId}/messages?after=${cursor.current}`);
+      const { messages, hasMore, reads, typing } = await api(`/chats/${chatId}/messages?after=${cursor.current}`);
       cursor.current = Math.max(cursor.current, newestId(messages));
+      setTypers(typingDeadlines(typing));
       setData((d) => {
         const merged = mergeMessages(d.messages, messages);
         const nextReads = JSON.stringify(reads) === JSON.stringify(d.reads) ? d.reads : reads;
@@ -101,7 +120,30 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
       return false;
     }
   };
-  usePoll(poll, POLL_MS, Boolean(data) && !error);
+  usePoll(poll, typers.length ? POLL_WHILE_TYPING_MS : POLL_MS, Boolean(data) && !error);
+
+  // Drop each typist when their time runs out, even between polls.
+  useEffect(() => {
+    if (!typers.length) return undefined;
+    const next = Math.min(...typers.map((t) => t.until));
+    const timer = setTimeout(() => setTypers((ts) => ts.filter((t) => t.until > Date.now())), Math.max(0, next - Date.now()) + 50);
+    return () => clearTimeout(timer);
+  }, [typers]);
+
+  // Tell the others you're typing (throttled), and that you've stopped when you clear the box.
+  const pingTyping = (text) => {
+    if (!text.trim()) {
+      if (lastTypingPing.current) api(`/chats/${chatId}/typing`, { method: 'DELETE' }).catch(() => {});
+      lastTypingPing.current = 0;
+    } else if (Date.now() - lastTypingPing.current >= TYPING_PING_MS) {
+      lastTypingPing.current = Date.now();
+      api(`/chats/${chatId}/typing`, { method: 'POST' }).catch(() => {});
+    }
+  };
+  // Leaving the chat mid-sentence clears your typing right away instead of after 5s.
+  useEffect(() => () => {
+    if (lastTypingPing.current) api(`/chats/${chatId}/typing`, { method: 'DELETE' }).catch(() => {});
+  }, [chatId]);
 
   // The first load and your own new messages scroll to the bottom. Others' messages only do if you
   // were already near it (a poll can also slot one in just above yours); otherwise the
@@ -123,6 +165,10 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
   }, [reads]);
   const shownMessages = data?.messages;
   const receipts = useMemo(() => (shownMessages ? readReceipts(shownMessages, reads) : null), [shownMessages, reads]);
+  const typingLabel = typingText(typers.map((t) => t.user.firstName));
+  useEffect(() => {
+    if (typingLabel && atBottom.current) bottom.current?.scrollIntoView({ block: 'end' });
+  }, [typingLabel]);
 
   // The button unmounts once you're at the newest message; keep keyboard focus in the chat.
   const hideJump = () => {
@@ -153,6 +199,7 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
       // anything the other group posted just before it.
       setData((d) => ({ ...d, messages: mergeMessages(d.messages, [message]) }));
       setDraft('');
+      lastTypingPing.current = 0; // sending cleared it on the server
       activityRef.current?.();
     } catch (err) {
       setSendError(err);
@@ -215,8 +262,16 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
             </div>
           );
         })}
+        {typingLabel && (
+          <div className="typing" aria-hidden="true">
+            <span className="typing__dots"><span /><span /><span /></span>
+            {typingLabel}
+          </div>
+        )}
         <div ref={bottom} />
       </div>
+      {/* Outside the log, so typing is announced as a status rather than as a message. */}
+      <p className="sr-only" role="status">{typingLabel}</p>
 
       {unseen && (
         <div className="chat-jump">
@@ -243,6 +298,7 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
           value={draft}
           onChange={(e) => {
             setDraft(e.target.value);
+            pingTyping(e.target.value);
             if (sendError) setSendError(null);
           }}
           aria-invalid={sendError ? true : undefined}

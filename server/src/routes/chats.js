@@ -45,36 +45,46 @@ const formatMessage = (m, userId) => ({
     : null,
 });
 
-// Read receipts: the newest message each other participant has read. The message is found in SQL
-// because timestamps have microseconds that JS dates drop. last_read_at starts equal to joined_at,
-// so someone who hasn't opened the chat since joining hasn't read the messages from before they joined.
-async function loadReads(chatId, userId) {
+// Someone counts as typing for this long after their composer last pinged POST /chats/:id/typing.
+const TYPING_MS = 5000;
+
+// What the other participants are doing, for an open chat:
+// - reads: the newest message each one has read. The message is found in SQL because timestamps have
+//   microseconds that JS dates drop. last_read_at starts equal to joined_at, so someone who hasn't
+//   opened the chat since joining hasn't read the messages from before they joined.
+// - typing: who is typing, with how long until that runs out unless they ping again (msLeft, worked
+//   out by the database clock so the browser's clock doesn't matter).
+async function loadOthers(chatId, userId) {
   const { rows } = await query(
-    `SELECT u.id, u.first_name, u.last_name, u.avatar_color, last_read.id AS message_id
+    `SELECT u.id, u.first_name, u.last_name, u.avatar_color,
+            CASE WHEN cp.last_read_at > cp.joined_at THEN last_read.id END AS read_message_id,
+            CASE WHEN cp.typing_at > now() - $3 * interval '1 millisecond'
+                 THEN ceil($3 - extract(epoch FROM now() - cp.typing_at) * 1000)::int END AS typing_ms_left
      FROM chat_participants cp
      JOIN users u ON u.id = cp.user_id
-     CROSS JOIN LATERAL (
+     LEFT JOIN LATERAL (
        SELECT m.id FROM messages m
        WHERE m.chat_id = cp.chat_id AND m.created_at <= cp.last_read_at
-       ORDER BY m.created_at DESC, m.id DESC LIMIT 1) last_read
-     WHERE cp.chat_id = $1 AND cp.user_id <> $2 AND cp.last_read_at > cp.joined_at
+       ORDER BY m.created_at DESC, m.id DESC LIMIT 1) last_read ON true
+     WHERE cp.chat_id = $1 AND cp.user_id <> $2
      ORDER BY u.first_name, u.id`,
-    [chatId, userId],
+    [chatId, userId, TYPING_MS],
   );
-  return rows.map((r) => ({
-    messageId: r.message_id,
-    user: { id: r.id, firstName: r.first_name, initials: userInitials(r.first_name, r.last_name), avatarColor: r.avatar_color },
-  }));
+  const person = (r) => ({ id: r.id, firstName: r.first_name, initials: userInitials(r.first_name, r.last_name), avatarColor: r.avatar_color });
+  return {
+    reads: rows.filter((r) => r.read_message_id).map((r) => ({ messageId: r.read_message_id, user: person(r) })),
+    typing: rows.filter((r) => r.typing_ms_left > 0).map((r) => ({ msLeft: r.typing_ms_left, user: person(r) })),
+  };
 }
 
 // An open chat polls with ?after=<last message id> (0 if it has none): newer messages only,
-// oldest first, 200 at a time, plus the current read receipts. Marks the chat read only when
-// something new came back.
+// oldest first, 200 at a time, plus the current read receipts and who's typing. Marks the chat
+// read only when something new came back.
 async function newerMessages(chatId, userId, rawAfter) {
   const after = typeof rawAfter === 'string' && /^\d+$/.test(rawAfter) ? Number(rawAfter) : NaN;
   if (!Number.isSafeInteger(after)) throw badRequest('INVALID_ID', 'after must be a message id (a whole number, 0 or more).');
   await participantGroup(chatId, userId);
-  const [{ rows }, reads] = await Promise.all([query(
+  const [{ rows }, others] = await Promise.all([query(
     `WITH newer AS (
        SELECT m.id, m.body, m.created_at, m.sender_user_id, u.first_name, u.last_name, u.avatar_color
        FROM messages m LEFT JOIN users u ON u.id = m.sender_user_id
@@ -84,8 +94,8 @@ async function newerMessages(chatId, userId, rawAfter) {
        WHERE chat_id = $1 AND user_id = $2 AND EXISTS (SELECT 1 FROM newer))
      SELECT * FROM newer ORDER BY id`,
     [chatId, userId, after],
-  ), loadReads(chatId, userId)]);
-  return { messages: rows.slice(0, 200).map((m) => formatMessage(m, userId)), hasMore: rows.length > 200, reads };
+  ), loadOthers(chatId, userId)]);
+  return { messages: rows.slice(0, 200).map((m) => formatMessage(m, userId)), hasMore: rows.length > 200, ...others };
 }
 
 // Opening a chat returns its latest 200 messages and marks it read.
@@ -93,7 +103,7 @@ router.get('/chats/:id/messages', requireGroup, async (req, res) => {
   const chatId = parseId(req.params.id, 'chat id');
   if (req.query.after !== undefined) return res.json(await newerMessages(chatId, req.user.id, req.query.after));
   const myGroupId = await participantGroup(chatId, req.user.id);
-  const [[chat], messages, participants, reads] = await Promise.all([
+  const [[chat], messages, participants, others] = await Promise.all([
     loadChatRows(pool, req.user.id, myGroupId, { chatIds: [chatId], view: 'any' }),
     query(
       `SELECT * FROM (
@@ -109,7 +119,7 @@ router.get('/chats/:id/messages', requireGroup, async (req, res) => {
        WHERE cp.chat_id = $1 ORDER BY cp.group_id = $2 DESC, u.first_name`,
       [chatId, myGroupId],
     ),
-    loadReads(chatId, req.user.id),
+    loadOthers(chatId, req.user.id),
   ]);
   await query('UPDATE chat_participants SET last_read_at = now() WHERE chat_id = $1 AND user_id = $2', [chatId, req.user.id]);
   res.json({
@@ -123,7 +133,7 @@ router.get('/chats/:id/messages', requireGroup, async (req, res) => {
       groupId: p.group_id,
     })),
     messages: messages.rows.map((m) => formatMessage(m, req.user.id)),
-    reads,
+    ...others,
   });
 });
 
@@ -139,9 +149,26 @@ router.post('/chats/:id/messages', requireGroup, async (req, res) => {
      FROM inserted i JOIN users u ON u.id = i.sender_user_id`,
     [chatId, req.user.id, body],
   );
-  await query('UPDATE chat_participants SET last_read_at = now() WHERE chat_id = $1 AND user_id = $2', [chatId, req.user.id]);
+  await query(
+    'UPDATE chat_participants SET last_read_at = now(), typing_at = NULL WHERE chat_id = $1 AND user_id = $2',
+    [chatId, req.user.id],
+  );
   res.status(201).json({ message: formatMessage(m, req.user.id) });
 });
+
+// Typing indicator. The composer pings POST while you type (about once a second) and DELETEs when
+// you clear it; sending a message also clears it. One UPDATE; only on a miss does it look up why.
+async function setTyping(req, res, typing) {
+  const chatId = parseId(req.params.id, 'chat id');
+  const { rowCount } = await query(
+    'UPDATE chat_participants SET typing_at = CASE WHEN $3 THEN now() END WHERE chat_id = $1 AND user_id = $2',
+    [chatId, req.user.id, typing],
+  );
+  if (!rowCount) await participantGroup(chatId, req.user.id);
+  res.status(204).end();
+}
+router.post('/chats/:id/typing', requireGroup, (req, res) => setTyping(req, res, true));
+router.delete('/chats/:id/typing', requireGroup, (req, res) => setTyping(req, res, false));
 
 // Select all / Archive / Recently deleted. Flags are per person, so archiving
 // a chat only hides it for you.
