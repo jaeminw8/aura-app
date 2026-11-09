@@ -149,6 +149,7 @@ Table chat_participants {
   group_id      bigint [not null, note: 'which side of the match the user is in the chat for']
   joined_at     timestamptz [not null, default: `now()`]
   last_read_at  timestamptz [not null, default: `now()`]
+  typing_at     timestamptz [note: 'last keystroke ping; "is typing" for 5s after, NULL when not typing']
   archived_at   timestamptz [note: 'per-user Archive flag']
   deleted_at    timestamptz [note: 'per-user "Recently deleted"']
 
