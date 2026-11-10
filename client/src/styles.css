@@ -730,11 +730,16 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
   border-radius: 16px;
   padding: 12px 12px 12px 18px;
   margin-bottom: 18px;
+  flex-wrap: wrap;
+  overflow: hidden;
 }
-.invite-code__value { font-family: var(--font-head); font-size: 24px; font-weight: 800; letter-spacing: 0.08em; color: var(--accent-ink); }
-.invite-code__actions { display: flex; gap: 6px; }
+.invite-code__value { flex: 1 1 100%; min-width: 0; font-family: var(--font-head); font-size: 24px; font-weight: 800; letter-spacing: 0.08em; color: var(--accent-ink); overflow-wrap: anywhere; }
+.invite-code__actions { flex: 1 1 100%; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.invite-code__actions .btn { min-width: 0; width: 100%; }
 .person-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
 .person-row__name { flex: 1; font-weight: 600; }
+.btn--danger-outline { border: 1px solid #f2b8b5; color: var(--danger); background: transparent; }
+.auth-cancel { margin-top: 10px; }
 .member-profile__head { display: flex; align-items: center; gap: 16px; }
 .member-profile__head h3 { font-size: 24px; font-weight: 800; }
 .member-profile__photos { margin: 18px 0; }

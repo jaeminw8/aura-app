@@ -25,7 +25,7 @@ export function ProfileFields({ value, onChange }) {
       </div>
       <Field label="City"><input value={value.city} onChange={set('city')} maxLength={80} required /></Field>
       <Field label="Bio">
-        <textarea value={value.bio} onChange={set('bio')} maxLength={500} placeholder="What's your crew like? What are you into?" />
+        <textarea value={value.bio} onChange={set('bio')} maxLength={500} placeholder="What's something about you? What are you into?" />
       </Field>
       <div className="field-row">
         <Field label="Age"><input type="number" inputMode="numeric" min={18} max={120} value={value.age} onChange={set('age')} /></Field>
@@ -127,7 +127,7 @@ export function AddInterestForm({ current, onAdd }) {
 }
 
 // Create a new group or join one with an invite code.
-export function CreateOrJoinForm({ onDone, defaultTab = 'create', defaultInviteCode = '' }) {
+export function CreateOrJoinForm({ onDone, defaultTab = 'create', defaultInviteCode = '', joinOnly = false }) {
   const [tab, setTab] = useState(defaultTab);
   const [name, setName] = useState('');
   const [code, setCode] = useState(defaultInviteCode);
@@ -143,13 +143,13 @@ export function CreateOrJoinForm({ onDone, defaultTab = 'create', defaultInviteC
   };
   return (
     <form onSubmit={submit}>
-      <div className="tabs" role="tablist">
+      {!joinOnly && <div className="tabs" role="tablist">
         {['create', 'join'].map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => { setTab(t); setError(null); }}>
             {t === 'create' ? 'Create a group' : 'Join with code'}
           </button>
         ))}
-      </div>
+      </div>}
       <FormError error={error} />
       {tab === 'create' ? (
         <Field label="Group name"><input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required placeholder="e.g. Tuesday Crew" /></Field>
@@ -232,6 +232,7 @@ export function InviteFriends({ group, onChanged }) {
 
 export function ManageGroupForm({ group, onSaved, onLeft }) {
   const [name, setName] = useState(group.name);
+  const [currentGroup, setCurrentGroup] = useState(group);
   const { busy, error, run } = useAsyncAction();
   const save = (e) => {
     e.preventDefault();
@@ -244,16 +245,27 @@ export function ManageGroupForm({ group, onSaved, onLeft }) {
       await onLeft();
     });
   };
+  const remove = (member) => {
+    if (!window.confirm(`Remove ${member.firstName} ${member.lastName} from ${currentGroup.name}?`)) return;
+    run(async () => {
+      const updated = await api(`/groups/${currentGroup.id}/members/${member.id}`, { method: 'DELETE' });
+      setCurrentGroup(updated.group);
+      await onSaved(updated.group);
+    });
+  };
   return (
     <form onSubmit={save}>
       <FormError error={error} />
       <Field label="Group name"><input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required /></Field>
       <h3 className="section-label">Members · {group.memberCount} of 10</h3>
-      {group.members.map((m) => (
+      {currentGroup.members.map((m) => (
         <div key={m.id} className="person-row">
           <Avatar initials={m.initials} color={m.avatarColor} size={40} />
           <span className="person-row__name">{m.firstName} {m.lastName}</span>
           {m.role === 'owner' && <span className="badge">Owner</span>}
+          {group.role === 'owner' && m.role !== 'owner' && (
+            <button type="button" className="btn btn--sm btn--danger-outline" disabled={busy} onClick={() => remove(m)}>Remove</button>
+          )}
         </div>
       ))}
       <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>

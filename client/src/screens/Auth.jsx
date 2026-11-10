@@ -68,6 +68,7 @@ export function SignUp({ next }) {
             </Field>
             <p id="password-hint" className="muted-small field-hint">At least {MIN_PASSWORD} characters.</p>
             <button className="btn btn--primary btn--block" disabled={busy}>{busy ? 'Creating account…' : 'Sign up'}</button>
+            <button type="button" className="btn btn--outline btn--block auth-cancel" onClick={() => { window.location.hash = '#/signin'; }}>Cancel</button>
           </form>
         )}
       </section>
@@ -136,6 +137,7 @@ export function FinishAccount({ email, onDone, onSignOut }) {
           </div>
           <Field label="City"><input value={v.city} onChange={set('city')} required maxLength={80} placeholder="Provo, UT" /></Field>
           <button className="btn btn--primary btn--block" disabled={busy}>{busy ? 'Saving…' : 'Continue'}</button>
+          <button type="button" className="btn btn--outline btn--block auth-cancel" onClick={onSignOut}>Cancel</button>
         </form>
       </section>
       <p className="auth-switch"><button type="button" className="link-btn" onClick={onSignOut}>Log out</button></p>

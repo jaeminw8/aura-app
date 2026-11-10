@@ -94,6 +94,11 @@ export function NoGroupGate({ refreshMe, inviteCode = '' }) {
       </div>
     );
   }
+  const onDone = async (group, tab) => {
+    await refreshMe();
+    if (tab === 'join') window.location.hash = '#/find';
+    else setCreatedGroup(group);
+  };
   return (
     <div className="gate">
       <div className="steps" aria-label="Step 2 of 2"><span className="on" /><span className="on" /></div>
@@ -103,18 +108,22 @@ export function NoGroupGate({ refreshMe, inviteCode = '' }) {
         <span>You need to be in a friend group before you can use aura. Create one for your crew, or join one with an invite code from a friend.</span>
       </div>
       <section className="card">
-        <CreateOrJoinForm defaultTab={inviteCode ? 'join' : 'create'} defaultInviteCode={inviteCode} onDone={(group, tab) => tab === 'create' ? setCreatedGroup(group) : refreshMe()} />
+        <CreateOrJoinForm defaultTab={inviteCode ? 'join' : 'create'} defaultInviteCode={inviteCode} joinOnly={Boolean(inviteCode)} onDone={onDone} />
       </section>
     </div>
   );
 }
 
 export function JoinGroupScreen({ refreshMe, inviteCode }) {
+  const joinDone = async () => {
+    await refreshMe();
+    window.location.hash = '#/find';
+  };
   return (
     <div className="gate">
       <h1 className="page-title" style={{ fontSize: 34 }}>Join your friend group</h1>
       <p className="subtle">Use the invite link your friend shared, then you’ll be ready to find groups together.</p>
-      <section className="card"><CreateOrJoinForm defaultTab="join" defaultInviteCode={inviteCode} onDone={() => refreshMe()} /></section>
+      <section className="card"><CreateOrJoinForm defaultTab="join" defaultInviteCode={inviteCode} joinOnly onDone={joinDone} /></section>
     </div>
   );
 }

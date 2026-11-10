@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
 import { pool, query, withTransaction } from '../db.js';
-import { conflict, notFound } from '../errors.js';
+import { conflict, forbidden, notFound } from '../errors.js';
 import { randomPastel } from '../lib/format.js';
 import { assertMember, loadGroupCards, loadRelationshipStats } from '../lib/groups.js';
 import { requireCompleteProfile } from '../lib/profile.js';
@@ -43,6 +43,14 @@ router.post('/groups/join', async (req, res) => {
   const code = readText(req.body.inviteCode, 'Invite code', { max: 12, required: true }).toUpperCase();
   const { rows: [group] } = await query('SELECT id, name FROM friend_groups WHERE invite_code = $1', [code]);
   if (!group) throw notFound('INVITE_NOT_FOUND', `No group has the invite code ${code}.`);
+  const { rows: [membership] } = await query(
+    'SELECT 1 FROM group_memberships WHERE group_id = $1 AND user_id = $2',
+    [group.id, req.user.id],
+  );
+  if (membership) {
+    await query('UPDATE users SET active_group_id = $2 WHERE id = $1', [req.user.id, group.id]);
+    return res.json({ group: await groupCard(group.id, { includeInviteCode: true }) });
+  }
   await addMember(group, req.user.id);
   res.status(201).json({ group: await groupCard(group.id, { includeInviteCode: true }) });
 });
@@ -105,6 +113,15 @@ router.post('/groups/:id/members', async (req, res) => {
   res.status(201).json({ group: await groupCard(groupId, { includeInviteCode: true }) });
 });
 
+async function assertOwner(db, groupId, userId) {
+  const { rows: [membership] } = await db.query(
+    'SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2',
+    [groupId, userId],
+  );
+  if (!membership) throw notFound('GROUP_NOT_FOUND', 'That friend group does not exist.');
+  if (membership.role !== 'owner') throw forbidden('OWNER_REQUIRED', 'Only the group owner can remove members.');
+}
+
 async function addMember(group, userId) {
   await withTransaction(async (client) => {
     const { rows } = await client.query(
@@ -151,6 +168,28 @@ router.delete('/groups/:id/members/me', async (req, res) => {
     );
   });
   res.status(204).end();
+});
+
+router.delete('/groups/:id/members/:userId', async (req, res) => {
+  const groupId = parseId(req.params.id, 'group id');
+  const userId = parseId(req.params.userId, 'user id');
+  await assertOwner(pool, groupId, req.user.id);
+  if (userId === req.user.id) throw conflict('OWNER_CANNOT_REMOVE_SELF', 'Use Leave group to leave your own group.');
+  await withTransaction(async (client) => {
+    const { rowCount } = await client.query(
+      'DELETE FROM group_memberships WHERE group_id = $1 AND user_id = $2',
+      [groupId, userId],
+    );
+    if (!rowCount) throw notFound('MEMBER_NOT_FOUND', 'That person is not a member of this group.');
+    await client.query('DELETE FROM chat_participants WHERE group_id = $1 AND user_id = $2', [groupId, userId]);
+    await client.query(
+      `UPDATE users SET active_group_id = (
+         SELECT group_id FROM group_memberships WHERE user_id = $1 ORDER BY joined_at LIMIT 1)
+       WHERE id = $1 AND active_group_id IS NULL`,
+      [userId],
+    );
+  });
+  res.json({ group: await groupCard(groupId, { includeInviteCode: true }) });
 });
 
 export default router;
