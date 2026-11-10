@@ -19,7 +19,7 @@ export async function loadGroupCards(db, groupIds, { viewerGroupId = null, inclu
   if (!groupIds.length) return [];
   const [groups, members, interests] = await Promise.all([
     db.query(
-      `SELECT g.id, g.name, g.city, g.status_text, g.photo_label, g.avatar_color, g.invite_code,
+      `SELECT g.id, g.name, g.city, g.photo_label, g.avatar_color, g.invite_code,
               (SELECT count(*) FROM group_memberships m WHERE m.group_id = g.id) AS member_count
        FROM friend_groups g WHERE g.id = ANY($1)`,
       [groupIds],
@@ -57,7 +57,6 @@ export async function loadGroupCards(db, groupIds, { viewerGroupId = null, inclu
     initials: groupInitials(g.name),
     avatarColor: g.avatar_color,
     city: g.city,
-    statusText: g.status_text,
     photoLabel: g.photo_label,
     ...(includeInviteCode && { inviteCode: g.invite_code }),
     memberCount: g.member_count,
