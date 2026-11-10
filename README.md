@@ -169,6 +169,8 @@ Accounts are **Supabase Auth** users (email + password). New visitors see **Sign
 
 - **Sign up** creates the Supabase Auth account, then the app creates its `users` row (`POST /api/users`, linked by `users.auth_user_id`) and goes to profile setup.
 - **Every API request** sends the session as `Authorization: Bearer <access token>`. The API verifies it against Supabase's published signing keys and loads the `users` row for that account. No token, a bad token or an expired one gets **`401`** (`NOT_SIGNED_IN` or `SESSION_EXPIRED`) and the app goes back to Sign in. A valid session with no `users` row gets `403 NO_PROFILE`, and the app asks for name and city. Only `GET /api/interests` and `GET /api/health` work without signing in.
+- **Staying signed in:** the session is saved in the browser (local storage), so it survives a refresh and closing the tab, and Supabase renews it in the background. It ends when you press **Log out** (on Profile, and also in the sidebar on a desktop) or when the API rejects it.
+- **Back to where you were:** opening any app page while signed out, such as a link to `#/messages/7`, goes to Sign in as `#/signin?next=/messages/7`. Signing in, or switching to Sign up from there, returns to that page. The same happens when a session expires. A bare URL with no page shows Sign up (new visitors), Log out goes to plain Sign in, and `next` only accepts aura's own pages (`/find`, `/messages`, `/messages/<id>`, `/profile`).
 - **Supabase settings:** Authentication → Sign In / Providers → Email has **Confirm email off** (Supabase's built-in email is limited to a few messages an hour) and a minimum password length of 8.
 
 **Demo accounts.** Every seeded user can sign in. All 16 share one password, which Julian sends to the team privately. It is **never** in this repo, because the repo is public. Groups below are from fresh seed data; the live database may have changed since.
@@ -214,7 +216,7 @@ Run `npm run db:demo-accounts` again after any `db:reset`: a reset keeps the log
 
 The vertical slice is **Accept** in "Groups that liked you". It goes from the browser through the API into Postgres and back, without a page reload.
 
-1. **Sign in as Avery Hansen** (`avery@example.com`, active group Tuesday Crew; see [Demo Accounts](#sign-in-and-demo-accounts)). If you're signed in as someone else, sign out first (Profile on a phone, the sidebar on a desktop).
+1. **Sign in as Avery Hansen** (`avery@example.com`, active group Tuesday Crew; see [Demo Accounts](#sign-in-and-demo-accounts)). If you're signed in as someone else, press **Log out** on Profile first.
 2. **Go to Messages and click Accept on a request.** The purple box says "2 groups want to meet Tuesday Crew" (Court Crew and Film Fridays). Click **Accept** on one of them. The client sends `POST /api/likes/:id/accept`. In one database transaction, the server records Tuesday Crew's "connect", creates the `group_matches` row, creates the `chats` row, and adds every member of both groups to `chat_participants`. It then returns the new chat.
 3. **See the new chat appear.** The request disappears from the box, and the new chat, for example "Tuesday Crew + Court Crew · 11 people", appears highlighted at the top of the Chats list with no reload. Tap it to send the first message.
 4. **Refresh the page and confirm it's still there.** Press reload. The request stays gone and the chat is still at the top of Chats.
