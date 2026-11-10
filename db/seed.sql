@@ -7,7 +7,7 @@
 BEGIN;
 
 TRUNCATE
-  meetups, messages, chat_participants, chats,
+  meetups, chat_suggestions, messages, chat_participants, chats,
   group_matches, group_likes, friendships, user_interests, interests,
   user_photos, group_memberships, friend_groups, users
   RESTART IDENTITY CASCADE;

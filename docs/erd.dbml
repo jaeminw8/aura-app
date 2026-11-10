@@ -11,6 +11,7 @@
 //   * chat "N people"           -> COUNT(chat_participants)
 //   * unread count              -> messages newer than chat_participants.last_read_at
 //   * incoming like is pending  -> no reverse row in group_likes yet
+//   * openers still on offer    -> chat_suggestions with no used_at, until both groups have sent a message
 //   * OKR KR1-KR4 percentages   -> view okr_metrics (group_matches, group_memberships, messages, meetups)
 
 Enum like_decision {
@@ -172,6 +173,18 @@ Table messages {
   }
 }
 
+Table chat_suggestions {
+  id          bigint [pk, increment]
+  chat_id     bigint [not null]
+  text        varchar(120) [not null, note: 'one AI conversation starter ("Need an opener?"); the AI step writes 3 per new match chat, or none if it fails']
+  used_at     timestamptz [note: 'when someone sent a message that started from it; NULL = not used']
+  created_at  timestamptz [not null, default: `now()`]
+
+  indexes {
+    chat_id
+  }
+}
+
 Table meetups {
   id                    bigint [pk, increment]
   match_id              bigint [not null, note: 'the matched pair that met up in person (KR4)']
@@ -227,6 +240,9 @@ Ref: chat_participants.group_id > friend_groups.id [delete: cascade]
 // 1:N  a chat has many messages; a user sends many messages
 Ref: messages.chat_id > chats.id [delete: cascade]
 Ref: messages.sender_user_id > users.id [delete: set null]
+
+// 1:N  a chat has 0..3 AI conversation starters
+Ref: chat_suggestions.chat_id > chats.id [delete: cascade]
 
 // 1:N  a match has 0..N confirmed meetups; a user confirms many meetups
 Ref: meetups.match_id > group_matches.id [delete: cascade]

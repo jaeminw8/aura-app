@@ -21,6 +21,7 @@ const PATHS = {
   restore: <path d="M4 12a8 8 0 1 0 2.5-5.8M4 4.5V9h4.5" />,
   logout: <path d="M14 4.5h4a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5h-4M10 16.5 5.5 12 10 7.5M5.5 12H15" />,
   users: <><circle cx="9" cy="8.5" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5.2a3.5 3.5 0 0 1 0 6.6M18.5 14.5a6.5 6.5 0 0 1 3 5.5" /></>,
+  sparkle: <path d="M12 3.5Q13.2 10.8 20.5 12 13.2 13.2 12 20.5 10.8 13.2 3.5 12 10.8 10.8 12 3.5Z" />,
 };
 
 export default function Icon({ name, size = 22, strokeWidth = 2, className, title }) {

@@ -12,6 +12,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - CI: `.github/workflows/ci.yml` runs `npm ci && npm run build` on every PR; merge only through PRs (README "How We Merge").
 - Hosting: Render, from `render.yaml` (API web service + static client). The client reads `VITE_API_URL` at build time; the API allows only `CORS_ORIGIN`. Pushing to `main` redeploys.
 - Database: the shared Supabase project **Find Friends App**, reached through the Session pooler (port 5432). The connection string lives only in `server/.env`.
+- AI: the API calls Google's Gemini API to write 3 conversation starters for each new match. `server/src/lib/gemini.js` is the only file that talks to it (plain `fetch`, no SDK); `server/src/lib/suggestions.js` has the prompt, the checks on the answer and the `chat_suggestions` queries. The key is `GEMINI_API_KEY`, read from the API's environment (Render's Environment tab, or `server/.env`); `GEMINI_MODEL` overrides the model.
 
 ## Commands (run from the repo root)
 - `npm install`: installs both workspaces.
@@ -27,6 +28,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - `npm run verify:receipts`: end-to-end check of read receipts. It posts a real message and marks a chat read for two people, so the same rules as `verify:chat` apply on the shared database.
 - `npm run verify:typing`: end-to-end check of the typing indicator (ping, poll, clear, 5s expiry, 403/404). It posts one real message and marks a chat read, so the same rules as `verify:chat` apply on the shared database.
 - `npm run verify:own-groups`: checks that Find and "Groups that liked you" never offer a person their own group. Leaves the data as it was.
+- `npm run verify:suggestions`: end-to-end check of the AI conversation starters (Accept doesn't wait for the AI, 3 rows saved, `used_at` on send, none once both groups have chatted; the fallback if the API has no key). It accepts a real request and posts two messages, so the same rules as `verify:slice` apply on the shared database. `-- --ai` only asks the AI for starters and prints them: it saves nothing and needs no demo login, so it's safe on the shared database, but it needs `GEMINI_API_KEY` in `server/.env` and uses one Gemini request.
 - `npm run build`: production build of the client.
 
 ## Conventions
@@ -41,6 +43,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - Layout: below 1024px wide it's the phone layout (430px column, bottom tab bar). At 1024px and up, `App.jsx` (`useMediaQuery`) switches to the desktop layout: a sidebar (`SideNav`), Messages as list + chat panes, Find card side by side, and Profile in two columns. All desktop CSS lives in the `min-width: 1024px` blocks at the end of `styles.css`. Keep phone styles outside those blocks.
 - Schema changes go in `db/schema.sql` (and the ERD files), never only by hand in the Supabase dashboard. To change the live shared database without wiping it, also add a re-runnable file in `db/migrations/` and run `npm run db:migrate`.
 - OKRs (KR1-KR4) come from the `okr_metrics` view; README "OKR Metrics" says which table each one reads.
+- AI calls never run inside a request or a transaction, and nothing may depend on one succeeding: `queueSuggestions` starts the call after the match is committed and returns at once, and every failure (no key, timeout, bad answer) just means no openers. Whatever the model returns is checked (`readStarters`) before it's saved or shown. Send it group-level data only (names, cities, interests), never member names or messages.
 
 ## Business rules (enforced on the server or in the database)
 - A Friend Group has at most 10 members (trigger `group_member_cap`, which raises `GROUP_FULL`). A chat has at most 30 people (`chat_participant_cap`, which raises `CHAT_FULL`).
@@ -49,7 +52,8 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - Two groups match when each group has a `connect` row in `group_likes` toward the other. The match, its chat and all members of both groups as participants are created in one transaction.
 - Recommendations are ranked by shared interests, then 1st-degree mutual friends, then 2nd-degree, then same city, then distance. They exclude your own groups and any group the active group has already liked, passed on or matched with. "Groups that liked you" also hides requests from any other group the viewer is in (they couldn't answer them: `OWN_GROUP`).
 - Onboarding gate: the app is unusable without a group (`403 NO_GROUP`). Creating or joining a group requires a complete profile (`403 PROFILE_INCOMPLETE`).
+- A new match's chat gets 3 AI conversation starters in `chat_suggestions` (or none if the AI call fails). The chat offers the unused ones (`used_at IS NULL`) to both groups until someone from each group has sent a message, the same "both groups have talked" as KR3. Sending a message with `suggestionId` sets that row's `used_at`.
 
 ## Secrets
-- Never commit `server/.env`, real passwords or full connection strings. `server/.env.example` only has placeholders.
+- Never commit `server/.env`, real passwords, full connection strings or API keys (`GEMINI_API_KEY`). `server/.env.example` only has placeholders. Never log a key or put it in a URL.
 - `.claude/` (local Claude Code settings) and `CLAUDE.local.md` are git-ignored.

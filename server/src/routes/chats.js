@@ -4,6 +4,7 @@ import { badRequest, forbidden, notFound } from '../errors.js';
 import { actingGroupId, requireGroup } from '../middleware/auth.js';
 import { loadChatRows } from '../lib/chats.js';
 import { userInitials } from '../lib/format.js';
+import { loadSuggestions, markSuggestionUsed } from '../lib/suggestions.js';
 import { parseId, readMessage } from '../lib/validate.js';
 
 const router = Router();
@@ -78,13 +79,13 @@ async function loadOthers(chatId, userId) {
 }
 
 // An open chat polls with ?after=<last message id> (0 if it has none): newer messages only,
-// oldest first, 200 at a time, plus the current read receipts and who's typing. Marks the chat
-// read only when something new came back.
+// oldest first, 200 at a time, plus the current read receipts, who's typing and the AI openers
+// still on offer. Marks the chat read only when something new came back.
 async function newerMessages(chatId, userId, rawAfter) {
   const after = typeof rawAfter === 'string' && /^\d+$/.test(rawAfter) ? Number(rawAfter) : NaN;
   if (!Number.isSafeInteger(after)) throw badRequest('INVALID_ID', 'after must be a message id (a whole number, 0 or more).');
   await participantGroup(chatId, userId);
-  const [{ rows }, others] = await Promise.all([query(
+  const [{ rows }, others, openers] = await Promise.all([query(
     `WITH newer AS (
        SELECT m.id, m.body, m.created_at, m.sender_user_id, u.first_name, u.last_name, u.avatar_color
        FROM messages m LEFT JOIN users u ON u.id = m.sender_user_id
@@ -94,11 +95,12 @@ async function newerMessages(chatId, userId, rawAfter) {
        WHERE chat_id = $1 AND user_id = $2 AND EXISTS (SELECT 1 FROM newer))
      SELECT * FROM newer ORDER BY id`,
     [chatId, userId, after],
-  ), loadOthers(chatId, userId)]);
-  return { messages: rows.slice(0, 200).map((m) => formatMessage(m, userId)), hasMore: rows.length > 200, ...others };
+  ), loadOthers(chatId, userId), loadSuggestions(chatId)]);
+  return { messages: rows.slice(0, 200).map((m) => formatMessage(m, userId)), hasMore: rows.length > 200, ...others, ...openers };
 }
 
-// Opening a chat returns its latest 200 messages and marks it read.
+// Opening a chat returns its latest 200 messages (with read receipts, who's typing and the AI
+// openers on offer) and marks it read.
 router.get('/chats/:id/messages', requireGroup, async (req, res) => {
   const chatId = parseId(req.params.id, 'chat id');
   if (req.query.after !== undefined) return res.json(await newerMessages(chatId, req.user.id, req.query.after));
@@ -121,7 +123,10 @@ router.get('/chats/:id/messages', requireGroup, async (req, res) => {
     ),
     loadOthers(chatId, req.user.id),
   ]);
-  await query('UPDATE chat_participants SET last_read_at = now() WHERE chat_id = $1 AND user_id = $2', [chatId, req.user.id]);
+  const [, openers] = await Promise.all([
+    query('UPDATE chat_participants SET last_read_at = now() WHERE chat_id = $1 AND user_id = $2', [chatId, req.user.id]),
+    loadSuggestions(chatId),
+  ]);
   res.json({
     chat: { ...chat, unreadCount: 0 },
     participants: participants.rows.map((p) => ({
@@ -134,12 +139,16 @@ router.get('/chats/:id/messages', requireGroup, async (req, res) => {
     })),
     messages: messages.rows.map((m) => formatMessage(m, req.user.id)),
     ...others,
+    ...openers,
   });
 });
 
+// Sends a message. suggestionId (optional) is the AI opener it started from: that one is marked
+// used. The response includes the openers still on offer, so the chips update without waiting for a poll.
 router.post('/chats/:id/messages', requireGroup, async (req, res) => {
   const chatId = parseId(req.params.id, 'chat id');
   const body = readMessage(req.body.body);
+  const suggestionId = req.body.suggestionId == null ? null : parseId(req.body.suggestionId, 'suggestionId');
   await participantGroup(chatId, req.user.id);
   const { rows: [m] } = await query(
     `WITH inserted AS (
@@ -149,11 +158,14 @@ router.post('/chats/:id/messages', requireGroup, async (req, res) => {
      FROM inserted i JOIN users u ON u.id = i.sender_user_id`,
     [chatId, req.user.id, body],
   );
-  await query(
-    'UPDATE chat_participants SET last_read_at = now(), typing_at = NULL WHERE chat_id = $1 AND user_id = $2',
-    [chatId, req.user.id],
-  );
-  res.status(201).json({ message: formatMessage(m, req.user.id) });
+  const [, openers] = await Promise.all([
+    query(
+      'UPDATE chat_participants SET last_read_at = now(), typing_at = NULL WHERE chat_id = $1 AND user_id = $2',
+      [chatId, req.user.id],
+    ),
+    (suggestionId ? markSuggestionUsed(chatId, suggestionId) : Promise.resolve()).then(() => loadSuggestions(chatId)),
+  ]);
+  res.status(201).json({ message: formatMessage(m, req.user.id), ...openers });
 });
 
 // Typing indicator. The composer pings POST while you type (about once a second) and DELETEs when

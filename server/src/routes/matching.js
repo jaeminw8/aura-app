@@ -6,6 +6,7 @@ import { actingGroupId, requireGroup } from '../middleware/auth.js';
 import { loadChatRows } from '../lib/chats.js';
 import { loadGroupCards, loadRelationshipStats } from '../lib/groups.js';
 import { recordDecision } from '../lib/matching.js';
+import { queueSuggestions } from '../lib/suggestions.js';
 import { parseId } from '../lib/validate.js';
 
 const router = Router();
@@ -39,6 +40,7 @@ router.post('/groups/:id/likes', requireGroup, async (req, res) => {
   const result = await withTransaction((client) =>
     recordDecision(client, { fromGroupId, toGroupId, userId: req.user.id, decision: req.body.decision }),
   );
+  if (result.chatId) queueSuggestions(result.chatId); // a new match: the AI writes its openers in the background
   const [chat] = result.chatId
     ? await loadChatRows(pool, req.user.id, fromGroupId, { chatIds: [result.chatId], view: 'any' })
     : [];
@@ -111,6 +113,7 @@ router.post('/likes/:id/accept', requireGroup, async (req, res) => {
       decision: 'connect',
     });
   });
+  queueSuggestions(result.chatId); // the AI writes the new chat's openers in the background
   const [chat] = await loadChatRows(pool, req.user.id, req.user.active_group_id, {
     chatIds: [result.chatId],
     view: 'any',
