@@ -10,7 +10,7 @@ import { RELATIONSHIP_LABELS } from '../format.js';
 
 const PHOTO_TINTS = ['#E6E1FF', '#DDF3E0', '#FDDCCB'];
 const PHOTO_INK = ['#4C1D95', '#166534', '#9A3412'];
-export default function ProfileScreen({ me, setMe, refreshMe, onSwitchGroup, onSignOut, isDesktop }) {
+export default function ProfileScreen({ me, setMe, refreshMe, onSwitchGroup, onSignOut }) {
   const toast = useToast();
   const [sheet, setSheet] = useState(null); // { type, group? }
   const close = () => setSheet(null);
@@ -153,10 +153,7 @@ export default function ProfileScreen({ me, setMe, refreshMe, onSwitchGroup, onS
             />
           ))}
 
-          {/* Desktop has Sign out in the sidebar. */}
-          {!isDesktop && (
-            <button type="button" className="btn btn--outline btn--block profile-signout" onClick={onSignOut}>Sign out</button>
-          )}
+          <button type="button" className="btn btn--outline btn--block profile-signout" onClick={onSignOut}>Log out</button>
         </div>
       </div>
 

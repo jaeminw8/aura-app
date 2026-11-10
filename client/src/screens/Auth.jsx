@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
+import { authHref } from '../routes.js';
 import { Field, FormError, useAsyncAction } from '../components/ui.jsx';
 import { authErrorMessage, supabase } from '../supabase.js';
 
@@ -16,7 +17,7 @@ function AuthHero() {
 
 // New visitors land here. The names ride along as account metadata; once the session exists,
 // App creates the users row from them (POST /api/users) and moves on to profile setup.
-export function SignUp() {
+export function SignUp({ next }) {
   const [v, setV] = useState({ firstName: '', lastName: '', city: '', email: '', password: '' });
   const [checkEmail, setCheckEmail] = useState(false);
   const { busy, error, run } = useAsyncAction();
@@ -70,12 +71,12 @@ export function SignUp() {
           </form>
         )}
       </section>
-      <p className="auth-switch">Already have an account? <a href="#/signin">Sign in</a></p>
+      <p className="auth-switch">Already have an account? <a href={authHref('signin', next)}>Sign in</a></p>
     </main>
   );
 }
 
-export function SignIn() {
+export function SignIn({ next }) {
   const [v, setV] = useState({ email: '', password: '' });
   const { busy, error, run } = useAsyncAction();
   const set = (k) => (e) => setV({ ...v, [k]: e.target.value });
@@ -103,7 +104,7 @@ export function SignIn() {
           <button className="btn btn--primary btn--block" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
         </form>
       </section>
-      <p className="auth-switch">New to aura? <a href="#/signup">Create an account</a></p>
+      <p className="auth-switch">New to aura? <a href={authHref('signup', next)}>Create an account</a></p>
     </main>
   );
 }
@@ -137,7 +138,7 @@ export function FinishAccount({ email, onDone, onSignOut }) {
           <button className="btn btn--primary btn--block" disabled={busy}>{busy ? 'Saving…' : 'Continue'}</button>
         </form>
       </section>
-      <p className="auth-switch"><button type="button" className="link-btn" onClick={onSignOut}>Sign out</button></p>
+      <p className="auth-switch"><button type="button" className="link-btn" onClick={onSignOut}>Log out</button></p>
     </main>
   );
 }

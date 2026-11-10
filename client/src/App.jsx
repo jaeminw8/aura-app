@@ -9,14 +9,23 @@ import FindScreen from './screens/FindScreen.jsx';
 import MessagesScreen from './screens/MessagesScreen.jsx';
 import { NoGroupGate, ProfileSetup } from './screens/Onboarding.jsx';
 import ProfileScreen from './screens/ProfileScreen.jsx';
+import { APP_PATH, authHref } from './routes.js';
 import { supabase } from './supabase.js';
 
-// Hash routes: #/find, #/messages, #/messages/:chatId, #/profile; signed out: #/signup (default), #/signin
+// Hash routes: #/find, #/messages, #/messages/:chatId, #/profile.
+// Signed out: #/signup (what a new visitor sees) and #/signin?next=/messages/7 (back to where you were).
 function parseRoute() {
-  const [, tab = 'find', id] = window.location.hash.split('/');
-  if (tab === 'messages' && id) return { tab: 'messages', chatId: Number(id) };
-  if (tab === 'signin' || tab === 'signup') return { tab, auth: true };
-  return { tab: ['find', 'messages', 'profile'].includes(tab) ? tab : 'find' };
+  const [path, query = ''] = window.location.hash.slice(1).split('?');
+  const [, tab = 'find', id] = path.split('/');
+  // A bare URL (no hash) is a new visitor; any app hash is a page someone meant to open.
+  const explicit = path !== '' && path !== '/';
+  if (tab === 'signin' || tab === 'signup') {
+    const next = new URLSearchParams(query).get('next');
+    return { tab, auth: true, next: APP_PATH.test(next ?? '') ? next : null };
+  }
+  if (tab === 'messages' && id) return { tab: 'messages', chatId: Number(id), path, explicit };
+  const known = ['find', 'messages', 'profile'].includes(tab);
+  return { tab: known ? tab : 'find', path: known ? path : '/find', explicit };
 }
 
 function useRoute() {
@@ -66,9 +75,12 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Logging out on purpose goes to plain Sign in; losing the session any other way (expired,
+  // signed out in another tab) remembers the page so signing back in returns to it.
+  const loggingOut = useRef(false);
   const signOut = useCallback(async () => {
+    loggingOut.current = true;
     await supabase.auth.signOut();
-    window.location.hash = '#/signin';
   }, []);
 
   const refreshMe = useCallback(async () => {
@@ -116,10 +128,18 @@ export default function App() {
     if (authUserId) refreshMe();
   }, [authUserId, refreshMe]);
 
-  // Leave #/signin or #/signup once signed in.
+  // Signed out on an app page: go to Sign in, remembering the page (replace, so Back doesn't bounce).
   useEffect(() => {
-    if (authUserId && route.auth) window.location.hash = '#/find';
-  }, [authUserId, route.auth]);
+    if (session !== null || route.auth || !route.explicit) return;
+    const next = loggingOut.current ? null : route.path;
+    loggingOut.current = false;
+    window.location.replace(authHref('signin', next));
+  }, [session, route]);
+
+  // Signed in on Sign in / Sign up: continue to the remembered page, or Find.
+  useEffect(() => {
+    if (authUserId && route.auth) window.location.replace(`#${route.next ?? '/find'}`);
+  }, [authUserId, route]);
 
   // Server says "no group" / "profile incomplete" from any screen: re-check the gate.
   useEffect(() => {
@@ -143,7 +163,10 @@ export default function App() {
   if (session === undefined) {
     content = <Loader label="Loading…" />;
   } else if (!session) {
-    content = route.tab === 'signin' ? <SignIn /> : <SignUp />;
+    // New visitors see Sign up; everyone else (including the moment before the redirect) sees Sign in.
+    content = route.tab === 'signup' || (!route.auth && !route.explicit)
+      ? <SignUp next={route.next} />
+      : <SignIn next={route.next} />;
   } else if (needsAccount) {
     content = <FinishAccount email={session.user.email} onDone={refreshMe} onSignOut={signOut} />;
   } else if (!me) {
@@ -182,7 +205,7 @@ export default function App() {
         <div className="frame frame--desktop">
           <SideNav current={route.tab} unread={me.unreadMessages}>
             <p className="sidebar__account">Signed in as <strong>{session.user.email}</strong></p>
-            <button type="button" className="btn btn--outline btn--block" onClick={signOut}>Sign out</button>
+            <button type="button" className="btn btn--outline btn--block" onClick={signOut}>Log out</button>
           </SideNav>
           <main className="main">{screen}</main>
         </div>
