@@ -171,14 +171,26 @@ Accounts are **Supabase Auth** users (email + password). New visitors see **Sign
 - **Every API request** sends the session as `Authorization: Bearer <access token>`. The API verifies it against Supabase's published signing keys and loads the `users` row for that account. No token, a bad token or an expired one gets **`401`** (`NOT_SIGNED_IN` or `SESSION_EXPIRED`) and the app goes back to Sign in. A valid session with no `users` row gets `403 NO_PROFILE`, and the app asks for name and city. Only `GET /api/interests` and `GET /api/health` work without signing in.
 - **Supabase settings:** Authentication → Sign In / Providers → Email has **Confirm email off** (Supabase's built-in email is limited to a few messages an hour) and a minimum password length of 8.
 
-**Demo accounts.** Every seeded user (#1–16) can sign in as `<first name>@example.com`, for example `avery@example.com` or `chloe@example.com`. They all share one password, which Julian sends by DM; it's never in the repo. Good starting points:
+**Demo accounts.** Every seeded user can sign in. All 16 share one password, which Julian sends to the team privately. It is **never** in this repo, because the repo is public. Groups below are from fresh seed data; the live database may have changed since.
 
-| Email | Seeded user | Why |
-|---|---|---|
-| `avery@example.com` | Avery Hansen (#1) | Tuesday Crew, with 2 incoming requests to Accept |
-| `maya@example.com` | Maya Patel (#7) | Sunday Summit Club, which already chats with Tuesday Crew |
-| `grace@example.com` | Grace Lee (#13) | Court Crew, which liked Tuesday Crew |
-| `zoe@example.com` | Zoe Adams (#16) | Wednesday Volleyball (full, 10 of 10) |
+| # | Email | Signs in as | Active group | Also in | Good for |
+|---|---|---|---|---|---|
+| 1 | `avery@example.com` | Avery Hansen | Tuesday Crew | Wednesday Volleyball | Main demo user: 2 incoming requests to Accept |
+| 2 | `ben@example.com` | Ben Kim | Tuesday Crew | - | Only in Tuesday Crew, so they can Accept any request to it |
+| 3 | `chloe@example.com` | Chloe Martin | Tuesday Crew | Wednesday Volleyball | - |
+| 4 | `diego@example.com` | Diego Ramos | Tuesday Crew | Wednesday Volleyball | - |
+| 5 | `emma@example.com` | Emma Wright | Tuesday Crew | - | - |
+| 6 | `finn@example.com` | Finn Taylor | Tuesday Crew | Wednesday Volleyball | - |
+| 7 | `maya@example.com` | Maya Patel | Sunday Summit Club | - | Chats with Tuesday Crew (live chat and read receipts) |
+| 8 | `theo@example.com` | Theo Nguyen | Sunday Summit Club | Film Fridays | - |
+| 9 | `priya@example.com` | Priya Shah | Sunday Summit Club | Court Crew | - |
+| 10 | `sam@example.com` | Sam Jensen | Sunday Summit Club | Wednesday Volleyball | - |
+| 11 | `jordan@example.com` | Jordan Reyes | Sunday Summit Club | Court Crew | - |
+| 12 | `lena@example.com` | Lena Novak | Sunday Summit Club | Film Fridays, Wednesday Volleyball | - |
+| 13 | `grace@example.com` | Grace Lee | Court Crew | Film Fridays, Wednesday Volleyball | Court Crew liked Tuesday Crew |
+| 14 | `eli@example.com` | Eli Brooks | Court Crew | Film Fridays, Wednesday Volleyball | - |
+| 15 | `noah@example.com` | Noah Carter | Court Crew | Wednesday Volleyball | - |
+| 16 | `zoe@example.com` | Zoe Adams | Wednesday Volleyball | Film Fridays | Wednesday Volleyball is full (10 of 10) |
 
 To see onboarding, sign up as someone new. The `verify:*` scripts sign in as these accounts with `DEMO_PASSWORD` from `server/.env`.
 
