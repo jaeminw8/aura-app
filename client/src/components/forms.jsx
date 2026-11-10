@@ -127,17 +127,16 @@ export function AddInterestForm({ current, onAdd }) {
 }
 
 // Create a new group or join one with an invite code.
-export function CreateOrJoinForm({ onDone, defaultTab = 'create' }) {
+export function CreateOrJoinForm({ onDone, defaultTab = 'create', defaultInviteCode = '' }) {
   const [tab, setTab] = useState(defaultTab);
   const [name, setName] = useState('');
-  const [statusText, setStatusText] = useState('');
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(defaultInviteCode);
   const { busy, error, setError, run } = useAsyncAction();
   const submit = (e) => {
     e.preventDefault();
     run(async () => {
       const res = tab === 'create'
-        ? await api('/groups', { method: 'POST', body: { name, statusText } })
+        ? await api('/groups', { method: 'POST', body: { name } })
         : await api('/groups/join', { method: 'POST', body: { inviteCode: code } });
       await onDone(res.group, tab);
     });
@@ -153,10 +152,7 @@ export function CreateOrJoinForm({ onDone, defaultTab = 'create' }) {
       </div>
       <FormError error={error} />
       {tab === 'create' ? (
-        <>
-          <Field label="Group name"><input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required placeholder="e.g. Tuesday Crew" /></Field>
-          <Field label="Status (optional)"><input value={statusText} onChange={(e) => setStatusText(e.target.value)} maxLength={80} placeholder="e.g. Looking for people this weekend" /></Field>
-        </>
+        <Field label="Group name"><input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required placeholder="e.g. Tuesday Crew" /></Field>
       ) : (
         <Field label="Invite code">
           <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={12} required placeholder="e.g. SUMMIT77" autoCapitalize="characters" />
@@ -184,6 +180,15 @@ export function InviteFriends({ group, onChanged }) {
       setCopied(false);
     }
   };
+  const inviteLink = `${window.location.origin}${window.location.pathname}#/join?code=${encodeURIComponent(group.inviteCode)}`;
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
   const add = (friend) => run(async () => {
     const res = await api(`/groups/${group.id}/members`, { method: 'POST', body: { userId: friend.id } });
     setFriends((fs) => fs.map((f) => (f.id === friend.id ? { ...f, groupIds: [...f.groupIds, group.id] } : f)));
@@ -191,12 +196,17 @@ export function InviteFriends({ group, onChanged }) {
   });
   return (
     <div>
-      <p className="subtle" style={{ marginTop: 0 }}>Share this code. Friends enter it under Create or join.</p>
+      <p className="subtle" style={{ marginTop: 0 }}>Share this link or code. Friends can open the link to join directly.</p>
       <div className="invite-code">
         <span className="invite-code__value">{group.inviteCode}</span>
+        <div className="invite-code__actions">
+        <button type="button" className="btn btn--sm btn--outline" onClick={copyLink}>
+          <Icon name={copied ? 'check' : 'link'} size={18} /> {copied ? 'Copied link' : 'Copy link'}
+        </button>
         <button type="button" className="btn btn--sm btn--outline" onClick={copy}>
           <Icon name={copied ? 'check' : 'copy'} size={18} /> {copied ? 'Copied' : 'Copy'}
         </button>
+        </div>
       </div>
       <h3 className="section-label">Or add a friend directly · {group.memberCount} of 10</h3>
       <FormError error={error} />
@@ -222,11 +232,10 @@ export function InviteFriends({ group, onChanged }) {
 
 export function ManageGroupForm({ group, onSaved, onLeft }) {
   const [name, setName] = useState(group.name);
-  const [statusText, setStatusText] = useState(group.statusText ?? '');
   const { busy, error, run } = useAsyncAction();
   const save = (e) => {
     e.preventDefault();
-    run(async () => onSaved((await api(`/groups/${group.id}`, { method: 'PATCH', body: { name, statusText } })).group));
+    run(async () => onSaved((await api(`/groups/${group.id}`, { method: 'PATCH', body: { name } })).group));
   };
   const leave = () => {
     if (!window.confirm(`Leave ${group.name}?`)) return;
@@ -239,7 +248,6 @@ export function ManageGroupForm({ group, onSaved, onLeft }) {
     <form onSubmit={save}>
       <FormError error={error} />
       <Field label="Group name"><input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required /></Field>
-      <Field label="Status"><input value={statusText} onChange={(e) => setStatusText(e.target.value)} maxLength={80} placeholder="Looking for people this weekend" /></Field>
       <h3 className="section-label">Members · {group.memberCount} of 10</h3>
       {group.members.map((m) => (
         <div key={m.id} className="person-row">

@@ -7,7 +7,7 @@ import { FinishAccount, SignIn, SignUp } from './screens/Auth.jsx';
 import ChatScreen from './screens/ChatScreen.jsx';
 import FindScreen from './screens/FindScreen.jsx';
 import MessagesScreen from './screens/MessagesScreen.jsx';
-import { NoGroupGate, ProfileSetup } from './screens/Onboarding.jsx';
+import { JoinGroupScreen, NoGroupGate, ProfileSetup } from './screens/Onboarding.jsx';
 import ProfileScreen from './screens/ProfileScreen.jsx';
 import { APP_PATH, authHref } from './routes.js';
 import { supabase } from './supabase.js';
@@ -16,6 +16,7 @@ import { supabase } from './supabase.js';
 // Signed out: #/signup (what a new visitor sees) and #/signin?next=/messages/7 (back to where you were).
 function parseRoute() {
   const [path, query = ''] = window.location.hash.slice(1).split('?');
+  const fullPath = query ? `${path}?${query}` : path;
   const [, tab = 'find', id] = path.split('/');
   // A bare URL (no hash) is a new visitor; any app hash is a page someone meant to open.
   const explicit = path !== '' && path !== '/';
@@ -24,8 +25,8 @@ function parseRoute() {
     return { tab, auth: true, next: APP_PATH.test(next ?? '') ? next : null };
   }
   if (tab === 'messages' && id) return { tab: 'messages', chatId: Number(id), path, explicit };
-  const known = ['find', 'messages', 'profile'].includes(tab);
-  return { tab: known ? tab : 'find', path: known ? path : '/find', explicit };
+  const known = ['find', 'messages', 'profile', 'join'].includes(tab);
+  return { tab: known ? tab : 'find', path: known ? fullPath : '/find', inviteCode: tab === 'join' ? new URLSearchParams(query).get('code') ?? '' : '', explicit };
 }
 
 function useRoute() {
@@ -183,8 +184,10 @@ export default function App() {
     );
   } else if (!me.onboarding.profileComplete) {
     content = <ProfileSetup me={me} setMe={setMe} refreshMe={refreshMe} />;
+  } else if (route.tab === 'join') {
+    content = <JoinGroupScreen inviteCode={route.inviteCode} refreshMe={refreshMe} />;
   } else if (!me.onboarding.hasGroup) {
-    content = <NoGroupGate refreshMe={refreshMe} />;
+    content = <NoGroupGate refreshMe={refreshMe} inviteCode={route.inviteCode} />;
   } else if (route.chatId && !isDesktop) {
     return (
       <div className="frame">
