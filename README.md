@@ -171,21 +171,23 @@ Accounts are **Supabase Auth** users (email + password). New visitors see **Sign
 - **Every API request** sends the session as `Authorization: Bearer <access token>`. The API verifies it against Supabase's published signing keys and loads the `users` row for that account. No token, a bad token or an expired one gets **`401`** (`NOT_SIGNED_IN` or `SESSION_EXPIRED`) and the app goes back to Sign in. A valid session with no `users` row gets `403 NO_PROFILE`, and the app asks for name and city. Only `GET /api/interests` and `GET /api/health` work without signing in.
 - **Supabase settings:** Authentication → Sign In / Providers → Email has **Confirm email off** (Supabase's built-in email is limited to a few messages an hour) and a minimum password length of 8.
 
-**Demo accounts.** Four seeded users can sign in. They all use the same password, which Julian shares by DM; it's never in the repo.
+**Demo accounts.** Every seeded user (#1–16) can sign in as `<first name>@example.com`, for example `avery@example.com` or `chloe@example.com`. They all share one password, which Julian sends by DM; it's never in the repo. Good starting points:
 
-| Email | Seeded user | Group |
+| Email | Seeded user | Why |
 |---|---|---|
-| `avery@example.com` | Avery Hansen (#1) | Tuesday Crew (2 incoming requests to Accept) |
-| `ben@example.com` | Ben Kim (#2) | Tuesday Crew |
-| `maya@example.com` | Maya Patel (#7) | Sunday Summit Club (chats with Tuesday Crew) |
+| `avery@example.com` | Avery Hansen (#1) | Tuesday Crew, with 2 incoming requests to Accept |
+| `maya@example.com` | Maya Patel (#7) | Sunday Summit Club, which already chats with Tuesday Crew |
+| `grace@example.com` | Grace Lee (#13) | Court Crew, which liked Tuesday Crew |
 | `zoe@example.com` | Zoe Adams (#16) | Wednesday Volleyball (full, 10 of 10) |
 
-The other seeded users have no login. To show onboarding, sign up as someone new. The `verify:*` scripts sign in as these accounts with `DEMO_PASSWORD` from `server/.env`.
+To see onboarding, sign up as someone new. The `verify:*` scripts sign in as these accounts with `DEMO_PASSWORD` from `server/.env`.
 
 **Setting them up (already done for Find Friends App):**
-1. Run [`db/supabase-grants.sql`](db/supabase-grants.sql) once in Supabase → SQL Editor. It lets the app's database login link rows to `auth.users`.
-2. Run `npm run db:migrate`. Migration `003_auth_users.sql` adds `users.auth_user_id`.
-3. Put `DEMO_PASSWORD` in `server/.env`, then run `npm run db:demo-accounts`. It creates the four logins and links them. It's safe to re-run, and `db:reset` relinks them by email.
+1. Run `npm run db:migrate`. Migration `003_auth_users.sql` adds `users.auth_user_id`.
+2. Run [`db/migrations/003_auth_users.sql`](db/migrations/003_auth_users.sql) once more in Supabase → SQL Editor. Supabase only lets the `postgres` login reference `auth.users`, so this is what adds the foreign key. The app's own login skips it with a warning.
+3. Put `DEMO_PASSWORD` in `server/.env`, then run `npm run db:demo-accounts`. It creates the 16 logins and links them by id.
+
+Run `npm run db:demo-accounts` again after any `db:reset`: a reset keeps the logins but unlinks them. It's safe to re-run.
 
 ## How We Merge
 

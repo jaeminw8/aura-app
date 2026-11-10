@@ -18,7 +18,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - `npm run dev`: starts the API (`API_PORT`, default 4000) and Vite (5173, which proxies `/api` to the API).
 - `npm run db:check`: connects with `server/.env` and prints the `users` row count. It's read-only.
 - `npm run db:reset`: runs schema then seed. **This wipes the shared team database.** Ask the team (or the user) before running it.
-- `npm run db:demo-accounts`: creates the 4 demo logins (Supabase Auth) and links them to seeded users. It needs `DEMO_PASSWORD` in `server/.env`, and it's safe to re-run.
+- `npm run db:demo-accounts`: creates a demo login (Supabase Auth, `<first name>@example.com`) for each of the 16 seeded users and links it. It needs `DEMO_PASSWORD` in `server/.env`, and it's safe to re-run; run it again after `db:reset`, which unlinks them. The `auth.users` foreign key can only be added by the `postgres` login, so `schema.sql` and migration 003 skip it with a warning when run as `aura_app`.
 - `npm run db:migrate`: runs every `db/migrations/*.sql` (re-runnable) and prints the OKR percentages. It keeps everyone's data except what a migration deliberately removes (002 drops the old events tables).
 - The `verify:*` scripts sign in as the demo accounts (`server/scripts/lib/session.js`), so they need `SUPABASE_PUBLISHABLE_KEY` and `DEMO_PASSWORD` in `server/.env`.
 - `npm run verify:slice`: end-to-end check of the Accept flow. It mutates data, so follow it with `db:reset` only if the team agrees.

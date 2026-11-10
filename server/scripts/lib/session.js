@@ -2,13 +2,10 @@
 // Needs SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and DEMO_PASSWORD in server/.env.
 import '../../src/env.js';
 
-// Seeded user id -> demo login. db/seed.sql and db/migrations/003 link the same emails.
-export const DEMO_ACCOUNTS = {
-  1: 'avery@example.com', // Tuesday Crew
-  2: 'ben@example.com', // Tuesday Crew
-  7: 'maya@example.com', // Sunday Summit Club
-  16: 'zoe@example.com', // Wednesday Volleyball
-};
+// Seeded user id -> demo login (every seeded user has one). npm run db:demo-accounts creates and links them.
+const FIRST_NAMES = ['avery', 'ben', 'chloe', 'diego', 'emma', 'finn', 'maya', 'theo',
+  'priya', 'sam', 'jordan', 'lena', 'grace', 'eli', 'noah', 'zoe'];
+export const DEMO_ACCOUNTS = Object.fromEntries(FIRST_NAMES.map((name, i) => [i + 1, `${name}@example.com`]));
 
 const cache = new Map();
 

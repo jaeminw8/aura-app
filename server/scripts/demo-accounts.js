@@ -1,6 +1,7 @@
 // Creates the demo logins (Supabase Auth accounts) and links them to their seeded users.
-// Every account uses DEMO_PASSWORD from server/.env. Safe to re-run: existing accounts are kept.
+// Every account uses DEMO_PASSWORD from server/.env. Safe to re-run (also after db:reset, which unlinks them).
 // Needs "Confirm email" turned off in Supabase (Authentication -> Sign In / Providers -> Email).
+// The app's database login can't read auth.users, so each account's id comes from Supabase Auth itself.
 import pg from 'pg';
 import { DEMO_ACCOUNTS } from './lib/session.js';
 
@@ -9,30 +10,49 @@ if (!SUPABASE_PUBLISHABLE_KEY || !DEMO_PASSWORD) {
   console.error('Set SUPABASE_PUBLISHABLE_KEY and DEMO_PASSWORD in server/.env (see server/.env.example).');
   process.exit(1);
 }
+const AUTH = `${SUPABASE_URL.replace(/\/$/, '')}/auth/v1`;
+
+async function authCall(path, body) {
+  const res = await fetch(`${AUTH}${path}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return { ok: res.ok, status: res.status, data: await res.json() };
+}
+
+// Returns the account's auth user id, creating the account if it doesn't exist yet.
+async function ensureAccount(email) {
+  const signup = await authCall('/signup', { email, password: DEMO_PASSWORD });
+  if (signup.ok && signup.data.user?.id) {
+    console.log(`created  ${email}`);
+    return signup.data.user.id;
+  }
+  if (signup.ok || ['user_already_exists', 'email_exists'].includes(signup.data.error_code)) {
+    const signin = await authCall('/token?grant_type=password', { email, password: DEMO_PASSWORD });
+    if (!signin.ok) {
+      throw new Error(`${email} exists but DEMO_PASSWORD doesn't sign in (${signin.data.msg ?? signin.status}). Use the team's demo password.`);
+    }
+    console.log(`exists   ${email}`);
+    return signin.data.user.id;
+  }
+  throw new Error(`${email}: ${signup.data.msg ?? signup.status}`);
+}
 
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 try {
-  for (const email of Object.values(DEMO_ACCOUNTS)) {
-    const res = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/signup`, {
-      method: 'POST',
-      headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: DEMO_PASSWORD }),
-    });
-    const data = await res.json();
-    if (res.ok) console.log(`created  ${email}`);
-    else if (['user_already_exists', 'email_exists'].includes(data.error_code)) console.log(`exists   ${email}`);
-    else throw new Error(`${email}: ${data.msg ?? res.status}`);
-  }
+  const links = [];
+  for (const [userId, email] of Object.entries(DEMO_ACCOUNTS)) links.push([Number(userId), await ensureAccount(email)]);
   await client.connect();
-  const { rowCount } = await client.query(
-    `UPDATE users u SET auth_user_id = a.id
-     FROM (SELECT key::bigint AS user_id, value AS email FROM json_each_text($1)) d
-     JOIN auth.users a ON lower(a.email) = d.email
-     WHERE u.id = d.user_id AND u.auth_user_id IS DISTINCT FROM a.id`,
-    [JSON.stringify(DEMO_ACCOUNTS)],
-  );
-  console.log(`Linked ${rowCount} seeded user(s). Sign in with any of these emails and DEMO_PASSWORD.`);
+  await client.query('BEGIN');
+  for (const [userId, authId] of links) {
+    await client.query('UPDATE users SET auth_user_id = NULL WHERE auth_user_id = $1 AND id <> $2', [authId, userId]);
+    await client.query('UPDATE users SET auth_user_id = $1 WHERE id = $2', [authId, userId]);
+  }
+  await client.query('COMMIT');
+  console.log(`Linked ${links.length} seeded user(s). Sign in with any of these emails and DEMO_PASSWORD.`);
 } catch (err) {
+  await client.query('ROLLBACK').catch(() => {});
   console.error(`Demo accounts failed: ${err.message}`);
   process.exitCode = 1;
 } finally {
