@@ -258,6 +258,16 @@ Run `npm run db:reset` afterwards to put the requests back (check with the team 
 
 You can also check it automatically. With `npm run dev` running, run `npm run verify:chat`. It posts a message as a member of the other group in Avery's least recently active chat (Tuesday Crew + Sunday Summit Club on the seed data), polls with `?after=` the way an open chat does, checks that the chat moves to the top of the list with the new preview, checks the database rows, and prints `PASS`/`FAIL` for each step. On a fresh seed Avery has only that one chat, so there's no re-sort to see until you Accept a request (or run `npm run verify:slice`) first. It really posts a message, which stays as that chat's newest preview, and it marks the chat read, which clears the seeded unread badge. Coordinate with the team before running it on the shared database; `npm run db:reset` restores the demo data.
 
+### Your Own Groups
+
+People can be in more than one friend group, so aura makes sure no one is ever offered a match with their own group:
+
+- **Find** never recommends a group you're in.
+- **Groups that liked you** hides a request that came from another group you're in. For example, if Avery is in Tuesday Crew and Wednesday Volleyball and someone in Wednesday Volleyball likes Tuesday Crew, Avery doesn't see that request. Tuesday Crew members who aren't in Wednesday Volleyball still see it and can accept or decline.
+- **Accepting or connecting anyway** (for example from an old screen) is rejected with `400 OWN_GROUP`.
+
+With `npm run dev` running, `npm run verify:own-groups` checks all of this. If it has to add a test request, it removes it again, so the data is left as it was.
+
 ## Read Receipts
 
 Under an open chat's messages, small avatars show who has read how far, the way Messenger does.
