@@ -24,6 +24,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - `npm run verify:messages`: checks that bad messages (empty, whitespace or invisible only, `\u0000`, too long, not text) get `400 VALIDATION_ERROR` and save nothing. It's read-only and safe on the shared database; `-- --post` also saves two test messages.
 - `npm run verify:receipts`: end-to-end check of read receipts. It posts a real message and marks a chat read for two people, so the same rules as `verify:chat` apply on the shared database.
 - `npm run verify:typing`: end-to-end check of the typing indicator (ping, poll, clear, 5s expiry, 403/404). It posts one real message and marks a chat read, so the same rules as `verify:chat` apply on the shared database.
+- `npm run verify:own-groups`: checks that Find and "Groups that liked you" never offer a person their own group. Leaves the data as it was.
 - `npm run build`: production build of the client.
 
 ## Conventions
@@ -43,7 +44,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - A user can be in several groups but has one active group, which must be one of their own groups (composite FK `users_active_group_is_membership`).
 - A group's shared interests are the union of its members' interests, computed by the `group_shared_interests` view and never stored.
 - Two groups match when each group has a `connect` row in `group_likes` toward the other. The match, its chat and all members of both groups as participants are created in one transaction.
-- Recommendations are ranked by shared interests, then 1st-degree mutual friends, then 2nd-degree, then same city, then distance. They exclude your own groups and any group the active group has already liked, passed on or matched with.
+- Recommendations are ranked by shared interests, then 1st-degree mutual friends, then 2nd-degree, then same city, then distance. They exclude your own groups and any group the active group has already liked, passed on or matched with. "Groups that liked you" also hides requests from any other group the viewer is in (they couldn't answer them: `OWN_GROUP`).
 - Onboarding gate: the app is unusable without a group (`403 NO_GROUP`). Creating or joining a group requires a complete profile (`403 PROFILE_INCOMPLETE`).
 
 ## Secrets
