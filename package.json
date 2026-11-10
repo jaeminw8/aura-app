@@ -15,6 +15,7 @@
     "db:check": "npm run db:check -w server",
     "db:reset": "npm run db:reset -w server",
     "db:migrate": "npm run db:migrate -w server",
+    "db:demo-accounts": "npm run db:demo-accounts -w server",
     "build": "npm run build -w client",
     "start": "npm run start -w server",
     "verify:slice": "npm run verify:slice -w server",

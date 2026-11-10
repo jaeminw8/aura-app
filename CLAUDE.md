@@ -18,7 +18,9 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - `npm run dev`: starts the API (`API_PORT`, default 4000) and Vite (5173, which proxies `/api` to the API).
 - `npm run db:check`: connects with `server/.env` and prints the `users` row count. It's read-only.
 - `npm run db:reset`: runs schema then seed. **This wipes the shared team database.** Ask the team (or the user) before running it.
+- `npm run db:demo-accounts`: creates a demo login (Supabase Auth, `<first name>@example.com`) for each of the 16 seeded users and links it. It needs `DEMO_PASSWORD` in `server/.env`, and it's safe to re-run; run it again after `db:reset`, which unlinks them. The `auth.users` foreign key can only be added by the `postgres` login, so `schema.sql` and migration 003 skip it with a warning when run as `aura_app`.
 - `npm run db:migrate`: runs every `db/migrations/*.sql` (re-runnable) and prints the OKR percentages. It keeps everyone's data except what a migration deliberately removes (002 drops the old events tables).
+- The `verify:*` scripts sign in as the demo accounts (`server/scripts/lib/session.js`), so they need `SUPABASE_PUBLISHABLE_KEY` and `DEMO_PASSWORD` in `server/.env`.
 - `npm run verify:slice`: end-to-end check of the Accept flow. It mutates data, so follow it with `db:reset` only if the team agrees.
 - `npm run verify:chat`: end-to-end check of live chat updates (`?after=` polling, list re-sort). It posts a real message and marks a chat read, so ask the team before running it on the shared database, and follow it with `db:reset` only if the team agrees.
 - `npm run verify:messages`: checks that bad messages (empty, whitespace or invisible only, `\u0000`, too long, not text) get `400 VALIDATION_ERROR` and save nothing. It's read-only and safe on the shared database; `-- --post` also saves two test messages.
@@ -28,7 +30,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 
 ## Conventions
 - API errors are always `{ error: { code, message, details? } }` with codes like `GROUP_FULL`, `NO_GROUP`, `NOT_ACTIVE_GROUP`. Database trigger errors (`AU001`, `AU002`) are mapped in `server/src/errors.js`.
-- Prototype auth is the `X-User-Id` header set by the "Signed in as" picker. The server still checks membership and the active group on every request.
+- Auth is Supabase Auth (email + password). The client (`client/src/supabase.js`, `@supabase/auth-js` only) sends `Authorization: Bearer <access token>`. `authenticate` in `server/src/middleware/auth.js` verifies it against Supabase's public keys (`SUPABASE_URL`) and returns `401` otherwise. `identify` then loads the `users` row by `auth_user_id` (`403 NO_PROFILE` if none). Only `/api/health` and `/api/interests` are public. Don't bring back an `X-User-Id` path or a public user list.
 - Find, likes, the incoming-likes inbox and the chat list always act as the user's **active group** (`actingGroupId` in `server/src/middleware/auth.js`).
 - Anything that has to be atomic goes through `withTransaction` (`server/src/db.js`), for example `recordDecision` in `server/src/lib/matching.js`.
 - The JSON the API returns is camelCase; database columns are snake_case.

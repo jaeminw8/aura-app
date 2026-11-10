@@ -34,6 +34,7 @@ erDiagram
         text_array personality_traits
         char avatar_color
         bigint active_group_id FK
+        uuid auth_user_id UK "Supabase Auth login (auth.users)"
         timestamptz created_at
     }
     user_photos {

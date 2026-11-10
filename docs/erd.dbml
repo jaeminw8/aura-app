@@ -37,6 +37,7 @@ Table users {
   personality_traits text[] [not null, default: '{}', note: 'e.g. {Outgoing, Planner}; max 5']
   avatar_color     char(7) [not null, default: '#FDDCCB', note: 'pastel hex behind initials']
   active_group_id  bigint [note: 'composite FK (id, active_group_id) -> group_memberships, so it must be a group the user belongs to']
+  auth_user_id     uuid [unique, note: 'Supabase Auth account that signs in as this user (auth.users.id, ON DELETE SET NULL); NULL = no login']
   created_at       timestamptz [not null, default: `now()`]
 }
 

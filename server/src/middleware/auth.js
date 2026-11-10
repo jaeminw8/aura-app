@@ -1,14 +1,41 @@
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { query } from '../db.js';
 import { ApiError, forbidden } from '../errors.js';
 import { parseId } from '../lib/validate.js';
 
-// Prototype auth: the client's "Signed in as" picker sends X-User-Id.
+// Supabase signs access tokens with an asymmetric key and publishes the public half,
+// so the API can check a token without any shared secret.
+const SUPABASE_URL = process.env.SUPABASE_URL.replace(/\/$/, '');
+const ISSUER = `${SUPABASE_URL}/auth/v1`;
+const jwks = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`));
+
+const notSignedIn = () => new ApiError(401, 'NOT_SIGNED_IN', 'Sign in to use aura.');
+
+// Verifies the Supabase session from `Authorization: Bearer <access token>` -> req.auth.
+export async function authenticate(req, res, next) {
+  const [scheme, token] = (req.get('Authorization') ?? '').split(' ');
+  if (scheme !== 'Bearer' || !token) throw notSignedIn();
+  let payload;
+  try {
+    ({ payload } = await jwtVerify(token, jwks, { issuer: ISSUER, audience: 'authenticated' }));
+  } catch (err) {
+    if (err.code === 'ERR_JWT_EXPIRED') throw new ApiError(401, 'SESSION_EXPIRED', 'Your session expired. Sign in again.');
+    // Couldn't fetch Supabase's public keys: that's our problem (500), not a bad session.
+    if (['ERR_JWKS_TIMEOUT', 'ERR_JWKS_INVALID'].includes(err.code) || err.name === 'TypeError') throw err;
+    throw notSignedIn();
+  }
+  req.auth = { id: payload.sub, email: payload.email };
+  next();
+}
+
+// Loads the users row that belongs to the signed-in account. A brand-new account has none
+// until POST /api/users creates it (the client does that right after sign up).
 export async function identify(req, res, next) {
-  const raw = req.get('X-User-Id');
-  if (!raw) throw new ApiError(401, 'NOT_SIGNED_IN', 'Pick who you are in "Signed in as" first.');
-  const id = parseId(raw, 'X-User-Id');
-  const { rows } = await query('SELECT id, first_name, city, active_group_id FROM users WHERE id = $1', [id]);
-  if (!rows[0]) throw new ApiError(401, 'UNKNOWN_USER', `There is no user #${id}. Pick someone else in "Signed in as".`);
+  const { rows } = await query(
+    'SELECT id, first_name, city, active_group_id FROM users WHERE auth_user_id = $1',
+    [req.auth.id],
+  );
+  if (!rows[0]) throw forbidden('NO_PROFILE', 'Finish creating your account first.');
   req.user = rows[0];
   next();
 }

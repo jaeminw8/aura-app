@@ -33,6 +33,8 @@ INSERT INTO users (id, first_name, last_name, city, bio, age, gender, relationsh
   (15, 'Noah',   'Carter', 'Orem, UT',  'Karaoke is a sport, change my mind.', 25, 'Man', 'its_complicated', '{Loud,Warm}', '#FDDCCB'),
   (16, 'Zoe',    'Adams',  'Provo, UT', 'Film minor, volleyball major.', 20, 'Woman', 'single', '{Creative,Chill}', '#F6DCF0');
 
+-- Demo logins (Supabase Auth) survive a reset but lose their link: run npm run db:demo-accounts afterwards.
+
 INSERT INTO user_photos (user_id, position, label) VALUES
   (1, 1, 'Photo 1'), (1, 2, 'Photo 2'),
   (2, 1, 'Photo 1'),

@@ -11,3 +11,8 @@ if (!url || /YOUR-PASSWORD|<[a-z-]+>/i.test(url)) {
   console.error('DATABASE_URL is not set. Copy server/.env.example to server/.env and paste the Find Friends App Session pooler URI (see README).');
   process.exit(1);
 }
+
+if (!process.env.SUPABASE_URL) {
+  console.error('SUPABASE_URL is not set. Add it to server/.env (see server/.env.example); the API needs it to check sign-ins.');
+  process.exit(1);
+}

@@ -4,7 +4,7 @@
 
 A mobile-first web app that helps groups of friends find and meet other friend groups. Built by Team Aura: Clint Burton, David Medina, Jaemin Weight and Julian Miles.
 
-The live app works on phones and desktops; pick any user in "Signed in as". The API runs on Render's free plan, so after about 15 idle minutes the first request takes up to a minute while it wakes up.
+The live app works on phones and desktops. Sign up with an email and password, or sign in with one of the [demo accounts](#sign-in-and-demo-accounts). The API runs on Render's free plan, so after about 15 idle minutes the first request takes up to a minute while it wakes up.
 
 ## App Summary
 
@@ -35,7 +35,7 @@ Each slice works end to end: a screen in the app, an API endpoint, and rows in P
 
 | # | Slice | What the user does | API | Database |
 |---|---|---|---|---|
-| 1 | Create an account | Welcome → **Create account**, then appears in "Signed in as" | `POST /api/users` | `users` |
+| 1 | Sign up and sign in | **Sign up** (name, city, email, password) goes straight to profile setup; returning users use **Sign in** ("Already have an account?") | Supabase Auth, then `POST /api/users`; every request sends the session as `Authorization: Bearer` | `auth.users`, `users.auth_user_id` |
 | 2 | Profile and interests | Profile → edit bio, details and interests | `PATCH /api/me` | `users`, `user_interests` (group interests update through the `group_shared_interests` view) |
 | 3 | Profile photos | Profile → add or remove a photo (1–3, placeholder images) | `POST /api/me/photos`, `DELETE /api/me/photos/:id` | `user_photos` |
 | 4 | Onboarding gate | A user with no group sees "Create or join a group" instead of the app | any group endpoint → `403 NO_GROUP` | `group_memberships` |
@@ -99,7 +99,7 @@ Notes:
 | Frontend | **React + Vite**, plain CSS (`/client`) | The most widely used UI library, so everyone on the team can contribute. Vite starts in under a second and reloads on save. Plain CSS with design tokens (no UI framework) keeps the mockups' look exact without another thing to learn. |
 | Backend | **Node + Express** REST API (`/server`) | The same language as the frontend, so nobody has to switch languages. Express is small enough to read end to end, and each screen maps to a few clear endpoints that return JSON errors like `409 GROUP_FULL`. |
 | Database | **PostgreSQL on Supabase**, accessed with `pg` | The free tier covers everything we need at this stage. Supabase's **Table Editor** lets the whole team see rows appear as we click through the app. All four of us point at **one shared database** (the Supabase project Find Friends App), so nobody's local setup drifts and seed data is the same for everyone. We use Supabase only as a Postgres host with plain SQL, so the work stays portable and shows real relational design (constraints, triggers, views). |
-| Auth | "Signed in as" picker (prototype) | Real login is out of scope for the prototype. The picker stores a user id in `localStorage` and sends it as an `X-User-Id` header, which keeps demos fast while the server still applies every rule (onboarding gate, membership, active group). |
+| Auth | **Supabase Auth** (email + password) | Supabase already hosts our database, so its Auth service adds real accounts without another vendor. The client uses only the small `@supabase/auth-js` package; the API checks each session token against Supabase's published signing keys (`jose`), so it needs no shared secret, and all app data still goes through our API. |
 | Tooling | npm workspaces, `concurrently` | `npm install` installs everything once. `npm run dev` starts both servers, and `npm run db:reset` rebuilds the database from the SQL files. |
 
 ## How to Get It Running
@@ -129,7 +129,7 @@ These steps assume a fresh clone and no prior knowledge of the project. The whol
    ```bash
    cp server/.env.example server/.env
    ```
-   Open `server/.env` and replace the whole `DATABASE_URL=...` line with `DATABASE_URL=<the string from steps 3–4>`. `server/.env` is git-ignored, so your password never gets committed.
+   Open `server/.env` and replace the whole `DATABASE_URL=...` line with `DATABASE_URL=<the string from steps 3–4>`. Set `SUPABASE_URL=https://rcyafwgjnnlgnakwkksi.supabase.co`, and copy `SUPABASE_PUBLISHABLE_KEY` from `client/.env.development` (it's public). Get `DEMO_PASSWORD` from Julian by DM; only the demo and `verify:*` scripts use it. `server/.env` is git-ignored, so your passwords never get committed.
 
 6. **Check the connection.**
    ```bash
@@ -141,7 +141,7 @@ These steps assume a fresh clone and no prior knowledge of the project. The whol
    ```bash
    npm run dev
    ```
-   This starts the API on http://localhost:4000 and the web app on http://localhost:5173. **Open http://localhost:5173.** On a desktop it renders at phone width; for the true mobile view, use your browser's device toolbar.
+   This starts the API on http://localhost:4000 and the web app on http://localhost:5173. **Open http://localhost:5173** and sign in with a [demo account](#sign-in-and-demo-accounts) or sign up. On a desktop it renders at phone width; for the true mobile view, use your browser's device toolbar.
 
 The tables and sample data already exist in Find Friends App. `npm run db:reset` rebuilds them from `db/schema.sql` and `db/seed.sql`, but it **wipes everyone's data on the shared database**, so only run it after the team agrees.
 
@@ -158,9 +158,36 @@ The tables and sample data already exist in Find Friends App. `npm run db:reset`
 The live app runs on [Render](https://render.com), set up from [`render.yaml`](render.yaml) (a Render Blueprint) in Julian's Render account:
 
 - **`aura-is401-api`** (web service): the Express API. `DATABASE_URL` is set in Render's Environment tab, never in the repo. `CORS_ORIGIN` allows only the client's URL to call the API from a browser.
-- **`aura-is401`** (static site): the Vite build of the client. `VITE_API_URL` tells it where the API lives; it's baked in at build time.
+- **`aura-is401`** (static site): the Vite build of the client. `VITE_API_URL` tells it where the API lives, and `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` point it at Supabase Auth; all are baked in at build time and are public.
+- The API's `SUPABASE_URL` (also public) is where it fetches Supabase's signing keys to check sessions.
 
 Every push or merge to `main` redeploys both automatically (about a minute); nothing to click. To set it up from scratch: Render Dashboard → **New → Blueprint** → pick this repo → paste the Session pooler URI as `DATABASE_URL` → **Apply**. If Render gives either service a different URL (it adds a suffix when a name is taken), update `CORS_ORIGIN` and `VITE_API_URL` to match.
+
+## Sign In and Demo Accounts
+
+Accounts are **Supabase Auth** users (email + password). New visitors see **Sign up**; "Already have an account? Sign in" goes to the separate sign-in page.
+
+- **Sign up** creates the Supabase Auth account, then the app creates its `users` row (`POST /api/users`, linked by `users.auth_user_id`) and goes to profile setup.
+- **Every API request** sends the session as `Authorization: Bearer <access token>`. The API verifies it against Supabase's published signing keys and loads the `users` row for that account. No token, a bad token or an expired one gets **`401`** (`NOT_SIGNED_IN` or `SESSION_EXPIRED`) and the app goes back to Sign in. A valid session with no `users` row gets `403 NO_PROFILE`, and the app asks for name and city. Only `GET /api/interests` and `GET /api/health` work without signing in.
+- **Supabase settings:** Authentication → Sign In / Providers → Email has **Confirm email off** (Supabase's built-in email is limited to a few messages an hour) and a minimum password length of 8.
+
+**Demo accounts.** Every seeded user (#1–16) can sign in as `<first name>@example.com`, for example `avery@example.com` or `chloe@example.com`. They all share one password, which Julian sends by DM; it's never in the repo. Good starting points:
+
+| Email | Seeded user | Why |
+|---|---|---|
+| `avery@example.com` | Avery Hansen (#1) | Tuesday Crew, with 2 incoming requests to Accept |
+| `maya@example.com` | Maya Patel (#7) | Sunday Summit Club, which already chats with Tuesday Crew |
+| `grace@example.com` | Grace Lee (#13) | Court Crew, which liked Tuesday Crew |
+| `zoe@example.com` | Zoe Adams (#16) | Wednesday Volleyball (full, 10 of 10) |
+
+To see onboarding, sign up as someone new. The `verify:*` scripts sign in as these accounts with `DEMO_PASSWORD` from `server/.env`.
+
+**Setting them up (already done for Find Friends App):**
+1. Run `npm run db:migrate`. Migration `003_auth_users.sql` adds `users.auth_user_id`.
+2. Run [`db/migrations/003_auth_users.sql`](db/migrations/003_auth_users.sql) once more in Supabase → SQL Editor. Supabase only lets the `postgres` login reference `auth.users`, so this is what adds the foreign key. The app's own login skips it with a warning.
+3. Put `DEMO_PASSWORD` in `server/.env`, then run `npm run db:demo-accounts`. It creates the 16 logins and links them by id.
+
+Run `npm run db:demo-accounts` again after any `db:reset`: a reset keeps the logins but unlinks them. It's safe to re-run.
 
 ## How We Merge
 
@@ -175,7 +202,7 @@ Every push or merge to `main` redeploys both automatically (about a minute); not
 
 The vertical slice is **Accept** in "Groups that liked you". It goes from the browser through the API into Postgres and back, without a page reload.
 
-1. **Pick a seeded user in "Signed in as."** On the first screen, choose **Avery Hansen** (active group: Tuesday Crew). If you're already in the app, use the "Signed in as" dropdown at the top.
+1. **Sign in as Avery Hansen** (`avery@example.com`, active group Tuesday Crew; see [Demo Accounts](#sign-in-and-demo-accounts)). If you're signed in as someone else, sign out first (Profile on a phone, the sidebar on a desktop).
 2. **Go to Messages and click Accept on a request.** The purple box says "2 groups want to meet Tuesday Crew" (Court Crew and Film Fridays). Click **Accept** on one of them. The client sends `POST /api/likes/:id/accept`. In one database transaction, the server records Tuesday Crew's "connect", creates the `group_matches` row, creates the `chats` row, and adds every member of both groups to `chat_participants`. It then returns the new chat.
 3. **See the new chat appear.** The request disappears from the box, and the new chat, for example "Tuesday Crew + Court Crew · 11 people", appears highlighted at the top of the Chats list with no reload. Tap it to send the first message.
 4. **Refresh the page and confirm it's still there.** Press reload. The request stays gone and the chat is still at the top of Chats.
@@ -209,7 +236,7 @@ Supabase Realtime could replace the polling later; for now polling keeps the ser
 
 **Try it by hand with two windows:**
 1. In a normal browser window, sign in as **Avery Hansen** (Tuesday Crew) and open the chat **Tuesday Crew + Sunday Summit Club**.
-2. In a private window (it keeps its own "Signed in as"), sign in as **Maya Patel** and open the same chat. Any Sunday Summit Club member works: Maya Patel, Theo Nguyen, Priya Shah, Sam Jensen, Jordan Reyes or Lena Novak.
+2. In a private window (it keeps its own session), sign in as **Maya Patel** (`maya@example.com`) and open the same chat.
 3. Send a message as Maya. Within about 5 seconds it appears in Avery's window. Reply as Avery and watch it arrive in Maya's.
 4. In Avery's window, go back to Messages (on desktop the list is already next to the chat) and **Accept** one of the requests in the purple box, so a newer chat sits on top. Then send another message as Maya. Within about 5 seconds, Tuesday Crew + Sunday Summit Club moves back to the top of Avery's list with Maya's message as the preview.
 
@@ -275,7 +302,7 @@ On Messages and in a chat, errors are written for people, not developers. Nobody
 While a screen waits for the API, it shows something that moves instead of a static "Loading…".
 
 - **Skeleton rows where we know the layout.** The chat list, the "Groups that liked you" box and the inside of a chat show gray placeholder rows (avatars, lines of text, message bubbles) with a soft shimmer. They use the same CSS classes as the real rows, so the page doesn't jump when the data arrives. The likes box shows as many placeholder rows as the group had requests last time, and none if it had none (one on the first visit).
-- **Spinners everywhere else.** Starting the app, Find, the "Signed in as" list and the Invite friends list show a spinner with a label. Accept and Decline show a spinner inside the button you pressed until the server answers, and the button keeps its size.
+- **Spinners everywhere else.** Starting the app, Find and the Invite friends list show a spinner with a label. Accept and Decline show a spinner inside the button you pressed until the server answers, and the button keeps its size.
 - **Reduced motion.** When the device asks for less motion (for example **Reduce motion** on macOS or iOS), the shimmer and the spinners stand still. The `prefers-reduced-motion` rule in `client/src/styles.css` turns off every animation in the app.
 - **Screen readers.** The area that's loading is marked `aria-busy="true"`, and a `role="status"` message such as "Loading chats…", "Opening chat…" or "Finding groups for Tuesday Crew…" is announced. The message goes in 0.3 seconds after the placeholder appears, because screen readers announce changes to a status message that's already on the page, not one that arrives with its text. Loads faster than that aren't announced.
 
