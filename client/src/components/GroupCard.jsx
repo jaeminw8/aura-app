@@ -5,7 +5,7 @@ import Icon from './Icon.jsx';
 const MAX_OTHER_INTERESTS = 3;
 
 // The recommended-group card on Find.
-export default function GroupCard({ group, position, total }) {
+export default function GroupCard({ group, position, total, onMemberClick }) {
   const { stats } = group;
   const shared = group.interests.filter((i) => i.shared);
   const others = group.interests.filter((i) => !i.shared).slice(0, MAX_OTHER_INTERESTS);
@@ -19,7 +19,7 @@ export default function GroupCard({ group, position, total }) {
     <article className="gcard" aria-label={group.name}>
       <div className="gcard__hero">
         <div className="gcard__hero-row">
-          {group.statusText ? <span className="chip chip--status">{group.statusText}</span> : <span />}
+          <span className="chip chip--location"><Icon name="pin" size={16} /> {group.city}</span>
           {total > 0 && <span className="gcard__counter">{position} of {total}</span>}
         </div>
         <div className="gcard__photo">[{group.photoLabel}]</div>
@@ -28,6 +28,7 @@ export default function GroupCard({ group, position, total }) {
 
       <div className="gcard__body">
         <h2 className="gcard__name">{group.name}</h2>
+        <p className="gcard__location"><Icon name="pin" size={17} /> Located in {group.city}</p>
         <p className="gcard__meta">{meta.join(' · ')}</p>
 
         {(shared.length > 0 || others.length > 0) && (
@@ -46,13 +47,13 @@ export default function GroupCard({ group, position, total }) {
         <h3 className="section-label">Members</h3>
         <div className="members">
           {group.members.map((m) => (
-            <div key={m.id} className="member">
+            <button key={m.id} type="button" className="member member--button" onClick={() => onMemberClick?.(m)} aria-label={`View ${m.firstName}'s profile`}>
               <Avatar initials={m.initials} color={m.avatarColor} size={42} />
               <div>
                 <div className="member__name">{m.firstName}</div>
                 <div className="member__interests">{m.topInterests.join(' · ') || 'No interests yet'}</div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>

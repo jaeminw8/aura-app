@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'node:crypto';
 import { pool, query, withTransaction } from '../db.js';
 import { conflict, notFound } from '../errors.js';
 import { randomPastel } from '../lib/format.js';
@@ -17,14 +18,14 @@ async function groupCard(groupId, viewer) {
 router.post('/groups', async (req, res) => {
   await requireCompleteProfile(pool, req.user.id);
   const name = readText(req.body.name, 'Group name', { max: 60, required: true });
-  const statusText = readText(req.body.statusText, 'Status', { max: 80 }) ?? null;
   const city = readText(req.body.city, 'City', { max: 80 }) ?? req.user.city;
+  const inviteCode = crypto.randomBytes(8).toString('hex').slice(0, 12).toUpperCase();
 
   const groupId = await withTransaction(async (client) => {
     const { rows: [group] } = await client.query(
-      `INSERT INTO friend_groups (name, city, status_text, avatar_color, created_by)
+      `INSERT INTO friend_groups (name, city, invite_code, avatar_color, created_by)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [name, city, statusText, randomPastel(), req.user.id],
+      [name, city, inviteCode, randomPastel(), req.user.id],
     );
     await client.query(
       `INSERT INTO group_memberships (group_id, user_id, role) VALUES ($1, $2, 'owner')`,
@@ -56,17 +57,38 @@ router.get('/groups/:id', async (req, res) => {
   res.json({ group: { ...card, stats: stats ?? null } });
 });
 
+router.get('/groups/:groupId/members/:userId/profile', async (req, res) => {
+  const groupId = parseId(req.params.groupId, 'group id');
+  const userId = parseId(req.params.userId, 'user id');
+  const { rows: [profile] } = await query(
+    `SELECT u.id, u.first_name, u.last_name, u.city, u.bio, u.age, u.gender,
+            u.relationship_status, u.personality_traits, u.avatar_color,
+            COALESCE((SELECT json_agg(json_build_object('id', p.id, 'label', p.label, 'imageUrl', p.image_url)
+                      ORDER BY p.position) FROM user_photos p WHERE p.user_id = u.id), '[]') AS photos,
+            COALESCE((SELECT array_agg(i.name ORDER BY i.name) FROM user_interests ui
+                      JOIN interests i ON i.id = ui.interest_id WHERE ui.user_id = u.id), '{}') AS interests
+     FROM users u JOIN group_memberships gm ON gm.user_id = u.id
+     WHERE gm.group_id = $1 AND u.id = $2`,
+    [groupId, userId],
+  );
+  if (!profile) throw notFound('MEMBER_NOT_FOUND', 'That group member could not be found.');
+  res.json({ profile: {
+    id: profile.id, firstName: profile.first_name, lastName: profile.last_name,
+    city: profile.city, bio: profile.bio, age: profile.age, gender: profile.gender,
+    relationshipStatus: profile.relationship_status, personalityTraits: profile.personality_traits,
+    avatarColor: profile.avatar_color, photos: profile.photos, interests: profile.interests,
+  } });
+});
+
 router.patch('/groups/:id', async (req, res) => {
   const groupId = parseId(req.params.id, 'group id');
   await assertMember(pool, groupId, req.user.id);
   const name = readText(req.body.name, 'Group name', { max: 60, required: 'name' in req.body });
-  const statusText = readText(req.body.statusText, 'Status', { max: 80 });
   await query(
     `UPDATE friend_groups
-     SET name = coalesce($2, name),
-         status_text = CASE WHEN $3 THEN $4 ELSE status_text END
+     SET name = coalesce($2, name)
      WHERE id = $1`,
-    [groupId, name ?? null, statusText !== undefined, statusText ?? null],
+    [groupId, name ?? null],
   );
   res.json({ group: await groupCard(groupId, { includeInviteCode: true }) });
 });

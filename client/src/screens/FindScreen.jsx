@@ -8,6 +8,8 @@ import { Loader } from '../components/Loading.jsx';
 import SwipeCard from '../components/SwipeCard.jsx';
 import { useToast } from '../components/ui.jsx';
 import { plural } from '../format.js';
+import MemberProfile from '../components/MemberProfile.jsx';
+import { Sheet } from '../components/ui.jsx';
 
 export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = false }) {
   const toast = useToast();
@@ -16,6 +18,8 @@ export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = f
   const [error, setError] = useState(null);
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [memberProfile, setMemberProfile] = useState(null);
+  const [profileError, setProfileError] = useState(null);
   const [explainerOpen, setExplainerOpen] = useState(() => !hasSeenExplainer());
   const closeExplainer = () => {
     markExplainerSeen();
@@ -38,6 +42,14 @@ export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = f
   }, [load]);
 
   const current = data?.recommendations[index];
+  const showMember = async (member) => {
+    setProfileError(null);
+    try {
+      setMemberProfile((await api(`/groups/${current.id}/members/${member.id}/profile`)).profile);
+    } catch (err) {
+      setProfileError(err);
+    }
+  };
 
   const decide = async (decision) => {
     if (!current || busy) return;
@@ -99,7 +111,7 @@ export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = f
           {current ? (
             <>
               <SwipeCard key={current.id} onSwipe={decide} disabled={busy || explainerOpen}>
-                <GroupCard group={current} position={index + 1} total={data.total} />
+                <GroupCard group={current} position={index + 1} total={data.total} onMemberClick={showMember} />
               </SwipeCard>
               <div className="decide-bar">
                 <button
@@ -144,6 +156,14 @@ export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = f
           isDesktop={isDesktop}
           onClose={closeExplainer}
         />
+      )}
+      {memberProfile && (
+        <Sheet title={`${memberProfile.firstName}'s profile`} onClose={() => setMemberProfile(null)}>
+          <MemberProfile profile={memberProfile} />
+        </Sheet>
+      )}
+      {profileError && (
+        <div className="toast toast--error" role="alert">{profileError.message}</div>
       )}
     </div>
   );

@@ -23,7 +23,7 @@ export const RELATIONSHIP_LABELS = {
   prefer_not_to_say: 'Prefer not to say',
 };
 
-export const GENDERS = ['Woman', 'Man', 'Nonbinary', 'Prefer not to say'];
+export const GENDERS = ['Male', 'Female'];
 
 export const TRAIT_SUGGESTIONS = [
   'Outgoing', 'Introvert', 'Planner', 'Spontaneous', 'Chill', 'Funny', 'Adventurous',

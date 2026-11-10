@@ -100,7 +100,6 @@ CREATE TABLE friend_groups (
   city          varchar(80)  NOT NULL,
   latitude      numeric(9,6) CHECK (latitude  BETWEEN -90  AND 90),
   longitude     numeric(9,6) CHECK (longitude BETWEEN -180 AND 180),
-  status_text   varchar(80),
   photo_label   varchar(60)  NOT NULL DEFAULT 'Group photo',
   avatar_color  char(7)      NOT NULL DEFAULT '#ECE8FF' CHECK (avatar_color ~ '^#[0-9A-Fa-f]{6}$'),
   invite_code   varchar(12)  NOT NULL UNIQUE DEFAULT upper(substr(md5(random()::text), 1, 8)),

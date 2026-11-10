@@ -88,7 +88,6 @@ Table friend_groups {
   city          varchar(80) [not null]
   latitude      numeric(9,6) [note: 'home base, for "1.2 mi away"']
   longitude     numeric(9,6)
-  status_text   varchar(80) [note: 'chip, e.g. "Looking for people this weekend"']
   photo_label   varchar(60) [not null, default: 'Group photo']
   avatar_color  char(7) [not null, default: '#ECE8FF']
   invite_code   varchar(12) [not null, unique]

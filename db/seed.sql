@@ -96,12 +96,12 @@ INSERT INTO friendships (user_low_id, user_high_id) VALUES
 -- ---------------------------------------------------------------------------
 -- Friend groups and memberships
 -- ---------------------------------------------------------------------------
-INSERT INTO friend_groups (id, name, city, latitude, longitude, status_text, photo_label, avatar_color, invite_code, created_by) VALUES
-  (1, 'Tuesday Crew',         'Provo, UT', 40.233800, -111.658500, 'Up for game night this Friday',       'Group photo', '#E6E1FF', 'TUESDAY1', 1),
-  (2, 'Wednesday Volleyball', 'Provo, UT', 40.249000, -111.649300, 'Need a sub for league night',         'Group photo', '#DDF3E0', 'SPIKE010', 3),
-  (3, 'Sunday Summit Club',   'Provo, UT', 40.250500, -111.645000, 'Looking for people this weekend',     'Group photo', '#DCEBFD', 'SUMMIT77', 7),
-  (4, 'Court Crew',           'Orem, UT',  40.296900, -111.694600, 'Open play Thursday nights',           'Group photo', '#FDDCCB', 'COURTS55', 13),
-  (5, 'Film Fridays',         'Provo, UT', 40.240000, -111.640000, 'Picking next week''s double feature', 'Group photo', '#F6DCF0', 'REEL2026', 8);
+INSERT INTO friend_groups (id, name, city, latitude, longitude, photo_label, avatar_color, invite_code, created_by) VALUES
+  (1, 'Tuesday Crew',         'Provo, UT', 40.233800, -111.658500, 'Group photo', '#E6E1FF', 'TUESDAY1', 1),
+  (2, 'Wednesday Volleyball', 'Provo, UT', 40.249000, -111.649300, 'Group photo', '#DDF3E0', 'SPIKE010', 3),
+  (3, 'Sunday Summit Club',   'Provo, UT', 40.250500, -111.645000, 'Group photo', '#DCEBFD', 'SUMMIT77', 7),
+  (4, 'Court Crew',           'Orem, UT',  40.296900, -111.694600, 'Group photo', '#FDDCCB', 'COURTS55', 13),
+  (5, 'Film Fridays',         'Provo, UT', 40.240000, -111.640000, 'Group photo', '#F6DCF0', 'REEL2026', 8);
 
 INSERT INTO group_memberships (group_id, user_id, role, joined_at) VALUES
   (1, 1, 'owner', now() - interval '120 days'), (1, 2, 'member', now() - interval '118 days'),

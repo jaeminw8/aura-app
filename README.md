@@ -42,7 +42,7 @@ Each slice works end to end: a screen in the app, an API endpoint, and rows in P
 | 5 | Create a group | Gate or Profile → **Create a group** | `POST /api/groups` | `friend_groups`, `group_memberships`, `users.active_group_id` |
 | 6 | Join with an invite code | Enter a code; a full group shows "already has 10 members" | `POST /api/groups/join` → `409 GROUP_FULL` when full | `group_memberships` (`group_member_cap` trigger) |
 | 7 | Invite a friend to your group | Profile → **Invite friends** → pick a friend | `GET /api/me/friends`, `POST /api/groups/:id/members` | `friendships`, `group_memberships`, `chat_participants` |
-| 8 | Edit group and leave group | Profile → edit name/status, or **Leave group** | `PATCH /api/groups/:id`, `DELETE /api/groups/:id/members/me` | `friend_groups`, `group_memberships`, `chat_participants` |
+| 8 | Edit group and leave group | Profile → edit group name, or **Leave group** | `PATCH /api/groups/:id`, `DELETE /api/groups/:id/members/me` | `friend_groups`, `group_memberships`, `chat_participants` |
 | 9 | Switch active group | Group switcher on Find or "Chatting as" on Messages | `PATCH /api/me/active-group` | `users.active_group_id` (composite FK to memberships) |
 | 10 | Find, Connect and Pass | Find shows one ranked group at a time; **Connect** or **Pass** loads the next | `GET /api/recommendations`, `POST /api/groups/:id/likes` | `group_likes`; a mutual Connect creates the match and chat |
 | 11 | Accept or decline a request | Messages → "Groups that liked you" → **Accept** (new chat appears) or decline | `GET /api/groups/:id/incoming-likes`, `POST /api/likes/:id/accept`, `POST /api/likes/:id/decline` | `group_likes`, `group_matches`, `chats`, `chat_participants` in one transaction |
@@ -53,6 +53,10 @@ Each slice works end to end: a screen in the app, an API endpoint, and rows in P
 | 16 | AI conversation starters | Open a new match's chat: three "Need an opener?" chips. Tap one to fill the message box, then send it | On a match the server asks the Gemini API for 3 starters; `GET /api/chats/:id/messages` (`suggestions`), `POST /api/chats/:id/messages` (`suggestionId`) | `chat_suggestions` (`text`, `used_at`) |
 
 Slice 11 has a step-by-step walkthrough in [Verifying the Vertical Slice](#verifying-the-vertical-slice), slice 12 in [Live Chat Updates](#live-chat-updates), slice 14 in [Read Receipts](#read-receipts), slice 15 in [Typing Indicator](#typing-indicator), and slice 16 in [AI Conversation Starters](#ai-conversation-starters).
+
+### Sprint 2 JW verification
+
+The Sprint 2 JW-assigned changes are tracked in [`docs/vertical-slice-verification.md`](docs/vertical-slice-verification.md). The tracker covers real sign-up/profile setup, group creation and invite-link joining, Find location and member profiles, removal of the group Status field, matching, and chat. Each row must be re-verified on the deployed URL with a real login before the Trello card is moved to Done.
 
 ## System Architecture
 
