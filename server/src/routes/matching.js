@@ -53,16 +53,19 @@ router.post('/groups/:id/likes', requireGroup, async (req, res) => {
 router.get('/groups/:id/incoming-likes', requireGroup, async (req, res) => {
   const groupId = actingGroupId(req, req.params.id);
   // Pending = they said connect, and we haven't answered (no like/pass back) or matched.
+  // Requests from another group the viewer is also in are hidden from them: they can't accept or
+  // decline those (OWN_GROUP), so leave them to members who aren't in both groups.
   const { rows } = await query(
     `SELECT l.id, l.from_group_id, l.created_at, u.first_name AS liked_by_first_name
      FROM group_likes l JOIN users u ON u.id = l.liked_by_user_id
      WHERE l.to_group_id = $1 AND l.decision = 'connect'
+       AND NOT EXISTS (SELECT 1 FROM group_memberships gm WHERE gm.group_id = l.from_group_id AND gm.user_id = $2)
        AND NOT EXISTS (SELECT 1 FROM group_likes r WHERE r.from_group_id = $1 AND r.to_group_id = l.from_group_id)
        AND NOT EXISTS (SELECT 1 FROM group_matches mt
                        WHERE mt.group_low_id = LEAST($1::bigint, l.from_group_id)
                          AND mt.group_high_id = GREATEST($1::bigint, l.from_group_id))
      ORDER BY l.created_at DESC`,
-    [groupId],
+    [groupId, req.user.id],
   );
   const fromIds = rows.map((r) => r.from_group_id);
   const [cards, stats] = await Promise.all([
