@@ -14,6 +14,7 @@
     "verify:receipts": "node scripts/verify-receipts.js",
     "verify:typing": "node scripts/verify-typing.js",
     "verify:own-groups": "node scripts/verify-own-groups.js",
+    "verify:suggestions": "node scripts/verify-suggestions.js",
     "verify:messages": "node scripts/verify-messages.js",
     "db:check": "node scripts/db-check.js",
     "db:demo-accounts": "node scripts/demo-accounts.js"

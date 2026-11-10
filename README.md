@@ -8,7 +8,7 @@ The live app works on phones and desktops. Sign up with an email and password, o
 
 ## App Summary
 
-Friend groups often want to meet other friend groups and do things together: a game night, a hike, a pickup game. But they don't know where to find those groups or which ones are open to meeting new people. This is common for college students and young adults who have moved to a new city, or whose circle has gotten small, and existing apps match individuals for dating or networking rather than whole groups. aura lets each person build a profile and join or create a Friend Group of up to 10 people, then go through recommended groups one at a time, choosing Connect or Pass on behalf of their active group. Recommendations are ranked by shared interests, then mutual friends, then whether the group is in the same city. When one member of each group says "Connect", from Find or by accepting in the "Groups that liked you" inbox, the two groups match and aura automatically opens a shared group chat with everyone from both groups.
+Friend groups often want to meet other friend groups and do things together: a game night, a hike, a pickup game. But they don't know where to find those groups or which ones are open to meeting new people. This is common for college students and young adults who have moved to a new city, or whose circle has gotten small, and existing apps match individuals for dating or networking rather than whole groups. aura lets each person build a profile and join or create a Friend Group of up to 10 people, then go through recommended groups one at a time, choosing Connect or Pass on behalf of their active group. Recommendations are ranked by shared interests, then mutual friends, then whether the group is in the same city. When one member of each group says "Connect", from Find or by accepting in the "Groups that liked you" inbox, the two groups match and aura automatically opens a shared group chat with everyone from both groups. An AI step then suggests three conversation starters, so somebody says the first word.
 
 ## Behavioral Requirements
 
@@ -31,7 +31,7 @@ From our Product Requirements Document.
 
 ## Vertical Slices
 
-Each slice works end to end: a screen in the app, an API endpoint, and rows in Postgres, live at the URL above. **Target for Sprint 2: 10. Working now: 15.**
+Each slice works end to end: a screen in the app, an API endpoint, and rows in Postgres, live at the URL above. **Target for Sprint 2: 10. Working now: 16.**
 
 | # | Slice | What the user does | API | Database |
 |---|---|---|---|---|
@@ -50,15 +50,16 @@ Each slice works end to end: a screen in the app, an API endpoint, and rows in P
 | 13 | Archive, delete and restore chats | Messages → **Select all** or pick chats → archive / delete; restore from Recently deleted | `GET /api/groups/:id/chats?view=`, `POST /api/chats/bulk` | `chat_participants` (per-person archived/deleted state) |
 | 14 | Read receipts | Open a chat: small avatars show who has read how far, and your latest message says **Delivered** until someone reads it | `GET /api/chats/:id/messages` (`reads`) | `chat_participants.last_read_at`, `messages` |
 | 15 | Typing indicator | Type in a chat: the other members see "Avery is typing…" within a few seconds, gone about 5 seconds after you stop | `POST`/`DELETE /api/chats/:id/typing`, `GET /api/chats/:id/messages` (`typing`) | `chat_participants.typing_at` |
+| 16 | AI conversation starters | Open a new match's chat: three "Need an opener?" chips. Tap one to fill the message box, then send it | On a match the server asks the Gemini API for 3 starters; `GET /api/chats/:id/messages` (`suggestions`), `POST /api/chats/:id/messages` (`suggestionId`) | `chat_suggestions` (`text`, `used_at`) |
 
-Slice 11 has a step-by-step walkthrough in [Verifying the Vertical Slice](#verifying-the-vertical-slice), slice 12 in [Live Chat Updates](#live-chat-updates), slice 14 in [Read Receipts](#read-receipts), and slice 15 in [Typing Indicator](#typing-indicator).
+Slice 11 has a step-by-step walkthrough in [Verifying the Vertical Slice](#verifying-the-vertical-slice), slice 12 in [Live Chat Updates](#live-chat-updates), slice 14 in [Read Receipts](#read-receipts), slice 15 in [Typing Indicator](#typing-indicator), and slice 16 in [AI Conversation Starters](#ai-conversation-starters).
 
 ## System Architecture
 
 ![aura system architecture](docs/architecture.png)
 
 - **Customer app:** users use the React website, which sends requests to our Express server. The server saves and loads data in Supabase, which also handles logins. Both run live on Render.
-- **AI service (planned):** the server sends both groups' interests to an AI service, which returns chat suggestions to get a conversation started.
+- **AI service:** when two groups match, the server sends both groups' names, cities and interests to Google's Gemini API, which returns three conversation starters for the new chat. See [AI Conversation Starters](#ai-conversation-starters).
 - **Admin portal (planned, AWS):** an admin uses HTML/CSS pages backed by an Express server and its own database.
 - **Where the apps connect:** the admin server reads app data from Supabase.
 
@@ -100,6 +101,7 @@ Notes:
 | Backend | **Node + Express** REST API (`/server`) | The same language as the frontend, so nobody has to switch languages. Express is small enough to read end to end, and each screen maps to a few clear endpoints that return JSON errors like `409 GROUP_FULL`. |
 | Database | **PostgreSQL on Supabase**, accessed with `pg` | The free tier covers everything we need at this stage. Supabase's **Table Editor** lets the whole team see rows appear as we click through the app. All four of us point at **one shared database** (the Supabase project Find Friends App), so nobody's local setup drifts and seed data is the same for everyone. We use Supabase only as a Postgres host with plain SQL, so the work stays portable and shows real relational design (constraints, triggers, views). |
 | Auth | **Supabase Auth** (email + password) | Supabase already hosts our database, so its Auth service adds real accounts without another vendor. The client uses only the small `@supabase/auth-js` package; the API checks each session token against Supabase's published signing keys (`jose`), so it needs no shared secret, and all app data still goes through our API. |
+| AI | **Google Gemini API** (`gemini-3.5-flash-lite`), called from the server with `fetch` | One small, fast model call per match is all we need, and Gemini has a free tier. It returns structured JSON that the server checks before saving, and plain `fetch` means no SDK to install or keep up to date. The key stays on the server. |
 | Tooling | npm workspaces, `concurrently` | `npm install` installs everything once. `npm run dev` starts both servers, and `npm run db:reset` rebuilds the database from the SQL files. |
 
 ## How to Get It Running
@@ -131,6 +133,8 @@ These steps assume a fresh clone and no prior knowledge of the project. The whol
    ```
    Open `server/.env` and replace the whole `DATABASE_URL=...` line with `DATABASE_URL=<the string from steps 3–4>`. Set `SUPABASE_URL=https://rcyafwgjnnlgnakwkksi.supabase.co`, and copy `SUPABASE_PUBLISHABLE_KEY` from `client/.env.development` (it's public). Get `DEMO_PASSWORD` from Julian by DM; only the demo and `verify:*` scripts use it. `server/.env` is git-ignored, so your passwords never get committed.
 
+   Optional: to see the [AI conversation starters](#ai-conversation-starters) locally, also add `GEMINI_API_KEY=<the team's Gemini key>`. Without it everything else works; new chats just have no suggested openers.
+
 6. **Check the connection.**
    ```bash
    npm run db:check
@@ -157,11 +161,13 @@ The tables and sample data already exist in Find Friends App. `npm run db:reset`
 
 The live app runs on [Render](https://render.com), set up from [`render.yaml`](render.yaml) (a Render Blueprint) in Julian's Render account:
 
-- **`aura-is401-api`** (web service): the Express API. `DATABASE_URL` is set in Render's Environment tab, never in the repo. `CORS_ORIGIN` allows only the client's URL to call the API from a browser.
+- **`aura-is401-api`** (web service): the Express API. `DATABASE_URL` is set in Render's Environment tab, never in the repo. So is `GEMINI_API_KEY`, the key for the [AI conversation starters](#ai-conversation-starters); without it the app runs normally, with no suggested openers. `CORS_ORIGIN` allows only the client's URL to call the API from a browser.
 - **`aura-is401`** (static site): the Vite build of the client. `VITE_API_URL` tells it where the API lives, and `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` point it at Supabase Auth; all are baked in at build time and are public.
 - The API's `SUPABASE_URL` (also public) is where it fetches Supabase's signing keys to check sessions.
 
-Every push or merge to `main` redeploys both automatically (about a minute); nothing to click. To set it up from scratch: Render Dashboard → **New → Blueprint** → pick this repo → paste the Session pooler URI as `DATABASE_URL` → **Apply**. If Render gives either service a different URL (it adds a suffix when a name is taken), update `CORS_ORIGIN` and `VITE_API_URL` to match.
+Every push or merge to `main` redeploys both automatically (about a minute); nothing to click. To set it up from scratch: Render Dashboard → **New → Blueprint** → pick this repo → paste the Session pooler URI as `DATABASE_URL` and the Gemini key as `GEMINI_API_KEY` → **Apply**. If Render gives either service a different URL (it adds a suffix when a name is taken), update `CORS_ORIGIN` and `VITE_API_URL` to match.
+
+Render only asks for secret values like these when a Blueprint is first created. To add or change one on the running service, open **`aura-is401-api` → Environment**, add the variable and save; Render redeploys the API. `https://aura-is401-api.onrender.com/api/health` shows `"aiOpeners": true` once the API has a Gemini key.
 
 ## Sign In and Demo Accounts
 
@@ -311,6 +317,31 @@ While someone types in a chat, the other members see "Avery is typing…" with t
 **Try it by hand with two windows:** sign in as **Avery Hansen** in one window and **Maya Patel** in a private window, and open **Tuesday Crew + Sunday Summit Club** in both. Start typing as Maya: within about 5 seconds Avery sees "Maya is typing…". Stop typing and it disappears about 5 seconds later; send the message instead and it's replaced by the message.
 
 The shared database needs the new column first: run `npm run db:migrate` (it runs `db/migrations/004_typing_indicator.sql`, which only adds the column) before the API that uses it is deployed. `npm run verify:typing` checks it end to end; it posts one real message, so coordinate with the team before running it on the shared database.
+
+## AI Conversation Starters
+
+When two groups match, an AI step writes three short conversation starters for their new chat, so nobody has to come up with the first message. This is the first slice of our AI workflow automation; the full workflow card is in the Sprint 3 backlog.
+
+- **What happens on a match.** Once the match and its chat are saved, the server sends both groups' names, cities and interests, plus the interests they have in common, to Google's Gemini API and asks for three starters as structured JSON. It then checks the answer: exactly three, all different, one line each, 120 characters or fewer, no links, emoji removed. Only an answer that passes is saved, as three rows in `chat_suggestions` (`chat_id`, `text`, `used_at`). It isn't a pass-through: people never write the prompt, and nothing the model says reaches the app unchecked.
+- **"Need an opener?" chips.** A chat where the two groups haven't both said something yet shows the starters as chips above the message box. Tap one and it's in the message box, ready to edit or send. Sending it marks that starter used (`used_at`), and its chip goes away for everyone in the chat.
+- **Gone once both groups have chatted.** That's the same "both groups have sent a message" that KR3 counts. Until then the unused ones stay, for both groups. They also step aside while you type a message of your own, so a tap never replaces something you wrote.
+- **Nothing waits on the AI.** The call runs in the background after the match is saved (`queueSuggestions` in `server/src/lib/suggestions.js`), so Accept and Connect are as fast as before. A chat opened in that moment shows placeholder chips and checks every 1.5 seconds until the starters arrive.
+- **It falls back gracefully.** With no key, or when the call fails, times out (8 seconds, tried twice) or returns something unusable, the match and the chat work exactly as before; the chat just has no chips. The server logs why in a line starting with `AI openers:`.
+- **What leaves the server.** Only the two groups' names, cities and interests. No member names, profiles or messages. The request tells Google not to store the exchange; on Gemini's free tier Google may still use what's sent to improve its products, which is one more reason nothing personal is sent.
+- **The key.** `GEMINI_API_KEY` is read only by the API: from Render's **Environment** tab on the live app, from `server/.env` locally. It's never in the repo or the browser. `GET /api/health` reports `"aiOpeners": true` when the API has one. The model is `gemini-3.5-flash-lite`; set `GEMINI_MODEL` to use another.
+- **Screen readers and keyboard.** The chips are a group of buttons labelled "Need an opener?", between the messages and the message box in tab order. Choosing one moves focus to the message box. While the starters are being written, a `role="status"` message says "Finding openers…".
+
+**Try it by hand:**
+1. Sign in as **Avery Hansen** (`avery@example.com`; see [Demo accounts](#sign-in-and-demo-accounts)), go to Messages and **Accept** Court Crew. Open the new chat: three chips appear under "Need an opener?".
+2. Tap one. It's now in the message box; change it if you like and press Send. Its chip disappears and the other two stay.
+3. In a private window (it keeps its own session), sign in as **Grace Lee** (`grace@example.com`, Court Crew) and open the same chat. She sees Avery's message and the two chips that are left. Send any message as Grace: within about 5 seconds the chips are gone in both windows.
+4. In Supabase's **Table Editor**, `chat_suggestions` has three rows for that chat, and the one Avery sent has `used_at` filled in.
+
+The shared database needs the new table first: run `npm run db:migrate` (it runs `db/migrations/005_chat_suggestions.sql`, which only adds the table) before the API that uses it is deployed. The migration creates the table as the role that owns the other tables (`aura_app`), whichever database login runs it, so the API can use it and a later `db:reset` can drop it. Matches made before that have no starters.
+
+**Check it automatically.**
+- `npm run verify:suggestions -- --ai` asks the AI for starters for an existing match and prints them along with what it was told. It saves nothing and doesn't need `npm run dev`, so it's safe on the shared database. It needs `GEMINI_API_KEY` in `server/.env` and uses one Gemini request.
+- With `npm run dev` running, `npm run verify:suggestions` checks the whole flow: Accept returns without waiting for the AI, three rows are saved, both groups are offered the same three, sending one sets its `used_at`, and none are offered once both groups have chatted. If the API has no key, it checks the fallback instead. It really accepts a request and posts two messages, so coordinate with the team before running it on the shared database; `npm run db:reset` restores the demo data.
 
 ## Message Validation
 

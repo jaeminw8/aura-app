@@ -19,6 +19,7 @@ erDiagram
     friend_groups ||--o{ chat_participants : "represented by"
     chats ||--o{ messages : contains
     users |o--o{ messages : sends
+    chats ||--o{ chat_suggestions : "is offered 0..3"
     group_matches ||--o{ meetups : "met up"
     users |o--o{ meetups : confirms
 
@@ -113,6 +114,13 @@ erDiagram
         bigint chat_id FK
         bigint sender_user_id FK
         text body
+        timestamptz created_at
+    }
+    chat_suggestions {
+        bigint id PK
+        bigint chat_id FK
+        varchar text "AI conversation starter"
+        timestamptz used_at "set when it is sent"
         timestamptz created_at
     }
     meetups {

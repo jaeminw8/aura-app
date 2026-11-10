@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import Avatar, { GroupPair, GroupPairSkeleton } from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
@@ -12,6 +12,10 @@ const POLL_MS = 5000;
 // server shows a ping for 5s, so a poll always lands before a steady typist's last ping runs out.
 const POLL_WHILE_TYPING_MS = 2000;
 const TYPING_PING_MS = 1000;
+// A brand-new match's AI openers are written a moment after the chat exists. Until they arrive the
+// chat polls faster and shows this many placeholder chips (the AI writes 3 per chat).
+const POLL_WHILE_OPENERS_PENDING_MS = 1500;
+const OPENER_PLACEHOLDERS = 3;
 const NEAR_BOTTOM_PX = 120;
 const MAX_RECEIPT_AVATARS = 5;
 const CHAT_GONE = ['NOT_IN_CHAT', 'CHAT_NOT_FOUND'];
@@ -25,6 +29,7 @@ const BUBBLE_PLACEHOLDERS = [
 ];
 
 const newestId = (messages) => messages.reduce((max, m) => Math.max(max, m.id), 0);
+const sameJson = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 // Adds messages once each (polls repeat the ones you sent), keeping the list in id order.
 function mergeMessages(list, incoming) {
@@ -70,6 +75,9 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
   // Why the last send failed, shown right above the message box. The typed text stays put.
   const [sendError, setSendError] = useState(null);
   const composer = useRef(null);
+  const input = useRef(null);
+  const [picked, setPicked] = useState(null); // id of the AI opener the message box was filled from
+  const openersVersion = useRef(0); // bumped by each send, so a poll already in flight can't bring back the opener it used
   const [unseen, setUnseen] = useState(false);
   const [typers, setTypers] = useState([]); // others who are typing: { user, until }
   const lastTypingPing = useRef(0); // when your composer last pinged; 0 = you're not shown as typing
@@ -104,13 +112,20 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
   // A blip (network, 5xx) keeps the chat on screen and retries on the next tick.
   const poll = async () => {
     try {
-      const { messages, hasMore, reads, typing } = await api(`/chats/${chatId}/messages?after=${cursor.current}`);
+      const version = openersVersion.current;
+      const { messages, hasMore, reads, typing, suggestions, suggestionsPending } = await api(`/chats/${chatId}/messages?after=${cursor.current}`);
       cursor.current = Math.max(cursor.current, newestId(messages));
       setTypers(typingDeadlines(typing));
+      // You sent a message while this poll was on its way: its openers may predate that, so keep yours.
+      const openersCurrent = version === openersVersion.current;
       setData((d) => {
-        const merged = mergeMessages(d.messages, messages);
-        const nextReads = JSON.stringify(reads) === JSON.stringify(d.reads) ? d.reads : reads;
-        return merged === d.messages && nextReads === d.reads ? d : { ...d, messages: merged, reads: nextReads };
+        const next = {
+          ...d,
+          messages: mergeMessages(d.messages, messages),
+          reads: sameJson(reads, d.reads) ? d.reads : reads,
+          ...(openersCurrent && { suggestions: sameJson(suggestions, d.suggestions) ? d.suggestions : suggestions, suggestionsPending }),
+        };
+        return Object.keys(next).every((key) => next[key] === d[key]) ? d : next;
       });
       if (!messages.length) return false;
       activityRef.current?.(); // the server marked it read; the desktop list re-sorts
@@ -120,7 +135,8 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
       return false;
     }
   };
-  usePoll(poll, typers.length ? POLL_WHILE_TYPING_MS : POLL_MS, Boolean(data) && !error);
+  const pollMs = data?.suggestionsPending ? POLL_WHILE_OPENERS_PENDING_MS : typers.length ? POLL_WHILE_TYPING_MS : POLL_MS;
+  usePoll(poll, pollMs, Boolean(data) && !error);
 
   // Drop each typist when their time runs out, even between polls.
   useEffect(() => {
@@ -144,6 +160,21 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
   useEffect(() => () => {
     if (lastTypingPing.current) api(`/chats/${chatId}/typing`, { method: 'DELETE' }).catch(() => {});
   }, [chatId]);
+
+  // AI openers ("Need an opener?"). The server sends the ones still on offer: none once both groups
+  // have said something, or from an API that predates them (the client and API deploy separately).
+  // They show while the message box is empty or holds one of them, and step aside as soon as you
+  // type a message of your own, so tapping one never replaces something you wrote.
+  const suggestions = data?.suggestions ?? [];
+  const openersPending = Boolean(data?.suggestionsPending) && !suggestions.length;
+  const showOpeners = (suggestions.length > 0 || openersPending) && (!draft.trim() || picked !== null);
+  const pickOpener = (suggestion) => {
+    setDraft(suggestion.text);
+    setPicked(suggestion.id);
+    pingTyping(suggestion.text);
+    if (sendError) setSendError(null);
+    input.current?.focus();
+  };
 
   // The first load and your own new messages scroll to the bottom. Others' messages only do if you
   // were already near it (a poll can also slot one in just above yours); otherwise the
@@ -169,6 +200,12 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
   useEffect(() => {
     if (typingLabel && atBottom.current) bottom.current?.scrollIntoView({ block: 'end' });
   }, [typingLabel]);
+  // The openers sit between the messages and the message box, so the list gets shorter or taller
+  // when they come and go; stay at the bottom if you were.
+  const openerRows = showOpeners ? suggestions.length || OPENER_PLACEHOLDERS : 0;
+  useEffect(() => {
+    if (atBottom.current) bottom.current?.scrollIntoView({ block: 'end' });
+  }, [openerRows]);
 
   // The button unmounts once you're at the newest message; keep keyboard focus in the chat.
   const hideJump = () => {
@@ -194,11 +231,15 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
     setSending(true);
     setSendError(null);
     try {
-      const { message } = await api(`/chats/${chatId}/messages`, { method: 'POST', body: { body } });
+      // suggestionId tells the server which AI opener this message started from, so it's marked used.
+      const sent = await api(`/chats/${chatId}/messages`, { method: 'POST', body: { body, ...(picked && { suggestionId: picked }) } });
       // Shown now, but the cursor stays put: the next poll returns it again (deduped) along with
-      // anything the other group posted just before it.
-      setData((d) => ({ ...d, messages: mergeMessages(d.messages, [message]) }));
+      // anything the other group posted just before it. The response also has the openers still on
+      // offer; an API that predates them doesn't send any, so there's nothing to keep.
+      openersVersion.current += 1;
+      setData((d) => ({ ...d, messages: mergeMessages(d.messages, [sent.message]), suggestions: sent.suggestions, suggestionsPending: sent.suggestionsPending }));
       setDraft('');
+      setPicked(null);
       lastTypingPing.current = 0; // sending cleared it on the server
       activityRef.current?.();
     } catch (err) {
@@ -281,6 +322,10 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
         </div>
       )}
 
+      {showOpeners && (
+        <Openers suggestions={suggestions} pending={openersPending} picked={picked} onPick={pickOpener} messageBox={input} />
+      )}
+
       {sendError && (
         <div className="composer-error">
           <p id="composer-error" role="alert">{friendlyError(sendError)}</p>
@@ -295,9 +340,11 @@ export default function ChatScreen({ chatId, refreshMe, embedded = false, onActi
         <label className="sr-only" htmlFor="composer">Message</label>
         <input
           id="composer"
+          ref={input}
           value={draft}
           onChange={(e) => {
             setDraft(e.target.value);
+            if (!e.target.value.trim()) setPicked(null); // an emptied box isn't that opener any more
             pingTyping(e.target.value);
             if (sendError) setSendError(null);
           }}
@@ -324,6 +371,40 @@ function ReadBy({ readers, mine }) {
       <span className="sr-only">Read by {names}</span>
       {readers.slice(0, MAX_RECEIPT_AVATARS).map((r) => <Avatar key={r.id} initials={r.initials} color={r.avatarColor} size={20} />)}
       {extra > 0 && <span aria-hidden="true">+{extra}</span>}
+    </div>
+  );
+}
+
+// "Need an opener?": the AI's conversation starters as chips. Tapping one puts it in the message
+// box, ready to edit or send. While a new match's openers are still being written (`pending`),
+// placeholder chips hold their place.
+function Openers({ suggestions, pending, picked, onPick, messageBox }) {
+  const panel = useRef(null);
+  // The chips can go away while one has keyboard focus (the other group just replied): hand the
+  // focus to the message box instead of dropping it.
+  useLayoutEffect(() => {
+    const node = panel.current;
+    return () => {
+      if (node.contains(document.activeElement)) messageBox.current?.focus();
+    };
+  }, [messageBox]);
+  return (
+    <div ref={panel} className="openers" role="group" aria-labelledby="openers-label" aria-busy={pending || undefined}>
+      <p id="openers-label" className="openers__label">
+        <Icon name="sparkle" size={16} />
+        Need an opener?
+        <span className="openers__by">Suggested by AI</span>
+      </p>
+      <div className="openers__chips">
+        {pending
+          ? Array.from({ length: OPENER_PLACEHOLDERS }, (_, i) => <Skeleton key={i} className="openers__placeholder" />)
+          : suggestions.map((s) => (
+            <button key={s.id} type="button" className={`chip chip--opener ${picked === s.id ? 'chip--picked' : ''}`} onClick={() => onPick(s)}>
+              {s.text}
+            </button>
+          ))}
+      </div>
+      {pending && <LoadingStatus label="Finding openers…" />}
     </div>
   );
 }

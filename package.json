@@ -24,6 +24,7 @@
     "verify:receipts": "npm run verify:receipts -w server",
     "verify:typing": "npm run verify:typing -w server",
     "verify:own-groups": "npm run verify:own-groups -w server",
+    "verify:suggestions": "npm run verify:suggestions -w server --",
     "verify:messages": "npm run verify:messages -w server --"
   },
   "devDependencies": {

@@ -2,6 +2,7 @@ import express from 'express';
 import './env.js';
 import { pool } from './db.js';
 import { errorHandler, notFound } from './errors.js';
+import { AI_MODEL, aiConfigured } from './lib/gemini.js';
 import { authenticate, identify } from './middleware/auth.js';
 import accountRouter from './routes/account.js';
 import chatsRouter from './routes/chats.js';
@@ -41,9 +42,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// aiOpeners: whether this server has a GEMINI_API_KEY, so new matches get AI conversation starters.
 app.get('/api/health', async (req, res) => {
   await pool.query('SELECT 1');
-  res.json({ ok: true });
+  res.json({ ok: true, aiOpeners: aiConfigured() });
 });
 
 app.use('/api', publicRouter);
@@ -61,4 +63,9 @@ app.use(errorHandler);
 
 // Locally API_PORT wins (the desktop preview launcher sets PORT=5173); hosts like Render set PORT.
 const port = Number(process.env.API_PORT || process.env.PORT) || 4000;
-app.listen(port, () => console.log(`aura API listening on port ${port}`));
+app.listen(port, () => {
+  console.log(`aura API listening on port ${port}`);
+  console.log(aiConfigured()
+    ? `AI openers: on (${AI_MODEL})`
+    : 'AI openers: off (GEMINI_API_KEY is not set). Everything else works; new chats just have no suggested openers.');
+});
