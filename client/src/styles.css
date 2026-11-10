@@ -320,6 +320,58 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
 
 .match-sub { margin: -6px 0 14px; color: var(--muted); font-size: 16px; }
 
+/* Find: who you're deciding for, plus the "How it works" link */
+.acting-note {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  background: var(--card);
+  border-radius: 18px;
+  padding: 8px 10px 8px 16px;
+  margin: -4px 0 14px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.acting-note p { flex: 1 1 220px; margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+.acting-note strong { color: var(--ink); }
+.acting-note .link-btn { flex: none; }
+
+/* Find: swipe shortcut around the card */
+.swipe { position: relative; touch-action: pan-y; transition: transform 0.2s ease; }
+.swipe--dragging { transition: none; }
+.swipe__stamp {
+  position: absolute;
+  top: 18px;
+  z-index: 2;
+  padding: 6px 16px;
+  border-radius: 12px;
+  border: 3px solid currentColor;
+  background: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  pointer-events: none;
+}
+.swipe__stamp--connect { left: 18px; color: var(--accent-ink); transform: rotate(-10deg); }
+.swipe__stamp--pass { right: 18px; color: var(--danger); transform: rotate(10deg); }
+
+/* Find: first-time explainer sheet */
+.explainer__lead { font-size: 18px; font-weight: 700; margin: -4px 0 16px; }
+.explainer__steps { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 14px; }
+.explainer__step { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; line-height: 1.4; }
+.explainer__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
+.explainer__step > span:last-child { padding-top: 9px; overflow-wrap: anywhere; }
+.explainer__tip { color: var(--muted); font-size: 15px; margin: 0 0 16px; }
+
 .gcard { background: var(--card); border-radius: 28px; overflow: hidden; margin-bottom: 16px; }
 .gcard__hero {
   position: relative;
