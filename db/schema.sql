@@ -172,6 +172,7 @@ CREATE TABLE chat_participants (
   group_id      bigint      NOT NULL REFERENCES friend_groups(id) ON DELETE CASCADE,
   joined_at     timestamptz NOT NULL DEFAULT now(),
   last_read_at  timestamptz NOT NULL DEFAULT now(),
+  typing_at     timestamptz,            -- last time they typed here; "is typing" for 5s after
   archived_at   timestamptz,
   deleted_at    timestamptz,
   PRIMARY KEY (chat_id, user_id)

@@ -12,6 +12,7 @@
     "verify:decline": "node scripts/verify-decline.js",
     "verify:chat": "node scripts/verify-chat.js",
     "verify:receipts": "node scripts/verify-receipts.js",
+    "verify:typing": "node scripts/verify-typing.js",
     "verify:messages": "node scripts/verify-messages.js",
     "db:check": "node scripts/db-check.js",
     "db:demo-accounts": "node scripts/demo-accounts.js"

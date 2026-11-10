@@ -25,6 +25,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 - `npm run verify:chat`: end-to-end check of live chat updates (`?after=` polling, list re-sort). It posts a real message and marks a chat read, so ask the team before running it on the shared database, and follow it with `db:reset` only if the team agrees.
 - `npm run verify:messages`: checks that bad messages (empty, whitespace or invisible only, `\u0000`, too long, not text) get `400 VALIDATION_ERROR` and save nothing. It's read-only and safe on the shared database; `-- --post` also saves two test messages.
 - `npm run verify:receipts`: end-to-end check of read receipts. It posts a real message and marks a chat read for two people, so the same rules as `verify:chat` apply on the shared database.
+- `npm run verify:typing`: end-to-end check of the typing indicator (ping, poll, clear, 5s expiry, 403/404). It posts one real message and marks a chat read, so the same rules as `verify:chat` apply on the shared database.
 - `npm run build`: production build of the client.
 
 ## Conventions

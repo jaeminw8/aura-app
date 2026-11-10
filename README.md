@@ -31,7 +31,7 @@ From our Product Requirements Document.
 
 ## Vertical Slices
 
-Each slice works end to end: a screen in the app, an API endpoint, and rows in Postgres, live at the URL above. **Target for Sprint 2: 10. Working now: 14.**
+Each slice works end to end: a screen in the app, an API endpoint, and rows in Postgres, live at the URL above. **Target for Sprint 2: 10. Working now: 15.**
 
 | # | Slice | What the user does | API | Database |
 |---|---|---|---|---|
@@ -49,8 +49,9 @@ Each slice works end to end: a screen in the app, an API endpoint, and rows in P
 | 12 | Group chat with live updates | Open a chat, send a message; the other group sees it within ~5 seconds | `GET /api/chats/:id/messages?after=`, `POST /api/chats/:id/messages` | `messages`, `chat_participants.last_read_at` |
 | 13 | Archive, delete and restore chats | Messages → **Select all** or pick chats → archive / delete; restore from Recently deleted | `GET /api/groups/:id/chats?view=`, `POST /api/chats/bulk` | `chat_participants` (per-person archived/deleted state) |
 | 14 | Read receipts | Open a chat: small avatars show who has read how far, and your latest message says **Delivered** until someone reads it | `GET /api/chats/:id/messages` (`reads`) | `chat_participants.last_read_at`, `messages` |
+| 15 | Typing indicator | Type in a chat: the other members see "Avery is typing…" within a few seconds, gone about 5 seconds after you stop | `POST`/`DELETE /api/chats/:id/typing`, `GET /api/chats/:id/messages` (`typing`) | `chat_participants.typing_at` |
 
-Slice 11 has a step-by-step walkthrough in [Verifying the Vertical Slice](#verifying-the-vertical-slice), slice 12 in [Live Chat Updates](#live-chat-updates), and slice 14 in [Read Receipts](#read-receipts).
+Slice 11 has a step-by-step walkthrough in [Verifying the Vertical Slice](#verifying-the-vertical-slice), slice 12 in [Live Chat Updates](#live-chat-updates), slice 14 in [Read Receipts](#read-receipts), and slice 15 in [Typing Indicator](#typing-indicator).
 
 ## System Architecture
 
@@ -257,6 +258,20 @@ Under an open chat's messages, small avatars show who has read how far, the way 
 3. Within about 5 seconds, Avery's **Delivered** becomes Maya's avatar.
 
 You can also check it automatically. With `npm run dev` running, run `npm run verify:receipts`. It posts a real message as Avery and marks the chat read for Avery and for someone in the other group, so coordinate with the team before running it on the shared database. `npm run db:reset` restores the demo data, again only if the team agrees.
+
+## Typing Indicator
+
+While someone types in a chat, the other members see "Avery is typing…" with three bouncing dots at the bottom of the conversation.
+
+- **Shows up within a few seconds.** While you type, your message box pings `POST /api/chats/:id/typing` at most once a second, which stores the time in `chat_participants.typing_at`. The open chat's regular poll returns `typing` (who, and how long until it runs out), so the others see you on their next poll, within about 5 seconds.
+- **Goes away about 5 seconds after you stop.** The server counts someone as typing for 5 seconds after their last ping, and each browser counts that down itself, so it clears between polls too. Sending the message, clearing the box (`DELETE /api/chats/:id/typing`) or leaving the chat clears it straight away.
+- **Doesn't flicker.** While someone in the chat is typing, the open chat polls every 2 seconds instead of 5, so a fresh ping always arrives before the last one runs out. It goes back to every 5 seconds when nobody is typing.
+- **Several people.** "Avery and Maya are typing…", then "Avery, Maya and Theo are typing…", then "Avery, Maya and 2 others are typing…". You never see yourself.
+- **Screen readers and reduced motion.** The same sentence is a `role="status"` message outside the message log, so it's announced politely without being read out as a chat message. With reduced motion turned on, the dots stand still.
+
+**Try it by hand with two windows:** sign in as **Avery Hansen** in one window and **Maya Patel** in a private window, and open **Tuesday Crew + Sunday Summit Club** in both. Start typing as Maya: within about 5 seconds Avery sees "Maya is typing…". Stop typing and it disappears about 5 seconds later; send the message instead and it's replaced by the message.
+
+The shared database needs the new column first: run `npm run db:migrate` (it runs `db/migrations/004_typing_indicator.sql`, which only adds the column) before the API that uses it is deployed. `npm run verify:typing` checks it end to end; it posts one real message, so coordinate with the team before running it on the shared database.
 
 ## Message Validation
 
