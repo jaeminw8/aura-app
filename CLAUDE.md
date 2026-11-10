@@ -32,6 +32,7 @@ Machine-specific notes (paths, accounts, local setup) belong in `CLAUDE.local.md
 ## Conventions
 - API errors are always `{ error: { code, message, details? } }` with codes like `GROUP_FULL`, `NO_GROUP`, `NOT_ACTIVE_GROUP`. Database trigger errors (`AU001`, `AU002`) are mapped in `server/src/errors.js`.
 - Auth is Supabase Auth (email + password). The client (`client/src/supabase.js`, `@supabase/auth-js` only) sends `Authorization: Bearer <access token>`. `authenticate` in `server/src/middleware/auth.js` verifies it against Supabase's public keys (`SUPABASE_URL`) and returns `401` otherwise. `identify` then loads the `users` row by `auth_user_id` (`403 NO_PROFILE` if none). Only `/api/health` and `/api/interests` are public. Don't bring back an `X-User-Id` path or a public user list.
+- Find has labeled **Pass** / **Connect** buttons; swiping the card (`components/SwipeCard.jsx`, touch only) is just a shortcut. The first visit opens `components/FindExplainer.jsx` once per browser (`localStorage` `aura.findExplainerSeen`). Keep copy clear that Connect is for the active group and doesn't mean joining the other group.
 - Find, likes, the incoming-likes inbox and the chat list always act as the user's **active group** (`actingGroupId` in `server/src/middleware/auth.js`).
 - Anything that has to be atomic goes through `withTransaction` (`server/src/db.js`), for example `recordDecision` in `server/src/lib/matching.js`.
 - The JSON the API returns is camelCase; database columns are snake_case.

@@ -8,7 +8,7 @@ The live app works on phones and desktops. Sign up with an email and password, o
 
 ## App Summary
 
-Friend groups often want to meet other friend groups and do things together: a game night, a hike, a pickup game. But they don't know where to find those groups or which ones are open to meeting new people. This is common for college students and young adults who have moved to a new city, or whose circle has gotten small, and existing apps match individuals for dating or networking rather than whole groups. aura lets each person build a profile and join or create a Friend Group of up to 10 people, then swipe on one recommended group at a time on behalf of their active group. Recommendations are ranked by shared interests, then mutual friends, then whether the group is in the same city. When one member of each group says "Connect", from Find or by accepting in the "Groups that liked you" inbox, the two groups match and aura automatically opens a shared group chat with everyone from both groups.
+Friend groups often want to meet other friend groups and do things together: a game night, a hike, a pickup game. But they don't know where to find those groups or which ones are open to meeting new people. This is common for college students and young adults who have moved to a new city, or whose circle has gotten small, and existing apps match individuals for dating or networking rather than whole groups. aura lets each person build a profile and join or create a Friend Group of up to 10 people, then go through recommended groups one at a time, choosing Connect or Pass on behalf of their active group. Recommendations are ranked by shared interests, then mutual friends, then whether the group is in the same city. When one member of each group says "Connect", from Find or by accepting in the "Groups that liked you" inbox, the two groups match and aura automatically opens a shared group chat with everyone from both groups.
 
 ## Behavioral Requirements
 
@@ -20,7 +20,7 @@ From our Product Requirements Document.
 | 2 | When a user updates their interests, the shared Friend Group interests update automatically. | **Complete** | Group interests come from the `group_shared_interests` view (the union of members' interests), so they're never stored and change the moment a member edits theirs. |
 | 3 | A Friend Group can't have more than 10 members; adding an 11th fails with an error returned to the user. | **Complete** | The `group_member_cap` trigger rejects the insert and the API returns `409 GROUP_FULL`, shown as an error in the app (try joining Wednesday Volleyball, which is full). |
 | 4 | Users who aren't in a Friend Group get an error inviting them to create or join one before they can use the app. | **Complete** | Every group-scoped endpoint returns `403 NO_GROUP`, and the app shows the "Create or join a group" screen. |
-| 5 | The matching screen shows one Friend Group at a time; after Connect or Pass, a new group is shown. | **Complete** | Find shows one card with Pass and Connect, then loads the next recommendation. |
+| 5 | The matching screen shows one Friend Group at a time; after Connect or Pass, a new group is shown. | **Complete** | Find shows one card with labeled Pass and Connect buttons (swipe left/right on touch screens), then loads the next recommendation. |
 | 6 | The system recommends Friend Groups based on mutual friends and interests. | **Complete** | `GET /api/recommendations` scores shared interests and mutual friends. |
 | 7 | When a user swipes on another group, the system notifies that group's users. | **Complete** | A Connect shows up in the other group's "Groups that liked you" box in Messages (in-app; no push notifications). |
 | 8 | Two groups match when one user from each says yes, from Find or from the inbox. | **Complete** | A reciprocal `connect` in `group_likes` creates the match, whether it comes from Find or from Accept. |
@@ -257,6 +257,19 @@ Supabase Realtime could replace the polling later; for now polling keeps the ser
 Run `npm run db:reset` afterwards to put the requests back (check with the team first, because it resets the shared database).
 
 You can also check it automatically. With `npm run dev` running, run `npm run verify:chat`. It posts a message as a member of the other group in Avery's least recently active chat (Tuesday Crew + Sunday Summit Club on the seed data), polls with `?after=` the way an open chat does, checks that the chat moves to the top of the list with the new preview, checks the database rows, and prints `PASS`/`FAIL` for each step. On a fresh seed Avery has only that one chat, so there's no re-sort to see until you Accept a request (or run `npm run verify:slice`) first. It really posts a message, which stays as that chat's newest preview, and it marks the chat read, which clears the seeded unread badge. Coordinate with the team before running it on the shared database; `npm run db:reset` restores the demo data.
+
+## Connect and Pass on Find
+
+In two rounds of user testing, people found swiping confusing and thought Connect meant joining the other group. Find now makes it clear:
+
+- **Labeled buttons.** Every card has **Pass** and **Connect** buttons. Screen readers hear the group's name too ("Connect with Film Fridays").
+- **Swipe as a shortcut.** On touch screens, swipe a card right to connect or left to pass. A "Connect" or "Pass" stamp appears once you've dragged far enough, and a short or mostly vertical drag does nothing, so scrolling still works. Mouse drags are ignored, so text on desktop stays selectable.
+- **Who you're choosing for.** A note above the card says "You're choosing for *your group*. Connect means your group wants to meet theirs, not that you join it." After a Connect, the toast says "Sent for *your group*!"
+- **First-time explainer.** The first time someone opens Find, a **How Find works** sheet opens: "Like a dating app, but for friend groups", plus what Connect, a match and Pass mean. **Got it** closes it for good on that browser (saved in `localStorage` as `aura.findExplainerSeen`), and the **How it works** link reopens it anytime.
+
+Lighthouse Accessibility on Find is 100 on phone and desktop, with the explainer open and closed.
+
+**Try it by hand.** Open the app in a private window and sign in: the explainer opens on Find. Close it, reload, and it stays closed. On a phone (or Chrome DevTools' device mode), drag the card sideways.
 
 ### Your Own Groups
 
