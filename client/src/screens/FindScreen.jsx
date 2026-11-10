@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
+import FindExplainer, { hasSeenExplainer, markExplainerSeen } from '../components/FindExplainer.jsx';
 import GroupCard from '../components/GroupCard.jsx';
 import GroupSwitcher from '../components/GroupSwitcher.jsx';
 import Icon from '../components/Icon.jsx';
 import { Loader } from '../components/Loading.jsx';
+import SwipeCard from '../components/SwipeCard.jsx';
 import { useToast } from '../components/ui.jsx';
 import { plural } from '../format.js';
 
@@ -14,6 +16,11 @@ export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = f
   const [error, setError] = useState(null);
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [explainerOpen, setExplainerOpen] = useState(() => !hasSeenExplainer());
+  const closeExplainer = () => {
+    markExplainerSeen();
+    setExplainerOpen(false);
+  };
 
   const load = useCallback(async () => {
     setError(null);
@@ -47,7 +54,7 @@ export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = f
         });
         refreshMe();
       } else if (decision === 'connect') {
-        toast(`Sent! We'll let you know if ${current.name} connects back.`);
+        toast(`Sent for ${data.actingGroup.name}! If ${current.name} connects back, you'll all get a group chat.`);
       }
       setIndex((i) => i + 1);
     } catch (err) {
@@ -82,14 +89,35 @@ export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = f
           <p className="match-sub">
             {plural(data.total, 'group')} near you {data.total === 1 ? 'matches' : 'match'} {data.actingGroup.name}
           </p>
+          <div className="acting-note">
+            <p>
+              You're choosing for <strong>{data.actingGroup.name}</strong>. Connect means your group wants to meet
+              theirs, not that you join it.
+            </p>
+            <button type="button" className="link-btn" onClick={() => setExplainerOpen(true)}>How it works</button>
+          </div>
           {current ? (
             <>
-              <GroupCard key={current.id} group={current} position={index + 1} total={data.total} />
+              <SwipeCard key={current.id} onSwipe={decide} disabled={busy || explainerOpen}>
+                <GroupCard group={current} position={index + 1} total={data.total} />
+              </SwipeCard>
               <div className="decide-bar">
-                <button type="button" className="btn btn--outline btn--lg" disabled={busy} onClick={() => decide('pass')}>
-                  <Icon name="x" size={24} /> Not now
+                <button
+                  type="button"
+                  className="btn btn--outline btn--lg"
+                  disabled={busy}
+                  onClick={() => decide('pass')}
+                  aria-label={`Pass on ${current.name}`}
+                >
+                  <Icon name="x" size={24} /> Pass
                 </button>
-                <button type="button" className="btn btn--primary btn--lg" disabled={busy} onClick={() => decide('connect')}>
+                <button
+                  type="button"
+                  className="btn btn--primary btn--lg"
+                  disabled={busy}
+                  onClick={() => decide('connect')}
+                  aria-label={`Connect with ${current.name}`}
+                >
                   <Icon name="userPlus" size={24} /> Connect
                 </button>
               </div>
@@ -108,6 +136,14 @@ export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = f
             </div>
           )}
         </>
+      )}
+
+      {explainerOpen && (
+        <FindExplainer
+          groupName={data?.actingGroup.name ?? activeName ?? 'your group'}
+          isDesktop={isDesktop}
+          onClose={closeExplainer}
+        />
       )}
     </div>
   );
