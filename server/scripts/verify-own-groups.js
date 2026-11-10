@@ -7,6 +7,7 @@
 // If no such request exists yet it adds one and removes it at the end, so the data is left as it was.
 import pg from 'pg';
 import '../src/env.js';
+import { authHeaders } from './lib/session.js';
 
 const API = `http://localhost:${process.env.API_PORT || 4000}/api`;
 const results = [];
@@ -15,7 +16,7 @@ const check = (label, ok, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? ` (${detail})` : ''}`);
 };
 async function call(userId, path, method = 'GET') {
-  const res = await fetch(`${API}${path}`, { method, headers: { 'X-User-Id': String(userId) } });
+  const res = await fetch(`${API}${path}`, { method, headers: await authHeaders(userId) });
   return { status: res.status, body: res.status === 204 ? null : await res.json() };
 }
 
@@ -34,6 +35,7 @@ try {
            (SELECT w.id FROM users w JOIN group_memberships gm ON gm.user_id = w.id AND gm.group_id = u.active_group_id
             WHERE w.active_group_id = u.active_group_id
               AND NOT EXISTS (SELECT 1 FROM group_memberships x WHERE x.group_id = b.group_id AND x.user_id = w.id)
+              AND w.id <= 16
             ORDER BY w.id LIMIT 1) AS w
     FROM users u
     JOIN group_memberships b ON b.user_id = u.id AND b.group_id <> u.active_group_id
@@ -43,6 +45,7 @@ try {
                       WHERE mt.group_low_id = LEAST(u.active_group_id, b.group_id)
                         AND mt.group_high_id = GREATEST(u.active_group_id, b.group_id))
       AND NOT EXISTS (SELECT 1 FROM group_likes r WHERE r.from_group_id = u.active_group_id AND r.to_group_id = b.group_id)
+      AND u.id <= 16
     ORDER BY u.id LIMIT 1`);
   if (!setup?.v || !setup?.w) throw new Error('No one is in two unmatched groups with the right members. Run npm run db:reset first.');
   console.log(`${setup.first_name} (#${setup.u}) is in ${setup.a_name} (active) and ${setup.b_name}\n`);
