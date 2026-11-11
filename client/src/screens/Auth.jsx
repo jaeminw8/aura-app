@@ -3,13 +3,14 @@ import { api } from '../api.js';
 import { authHref } from '../routes.js';
 import { Field, FormError, useAsyncAction } from '../components/ui.jsx';
 import { authErrorMessage, supabase } from '../supabase.js';
+import BrandLogo from '../components/BrandLogo.jsx';
 
 const MIN_PASSWORD = 8;
 
 function AuthHero() {
   return (
     <div className="gate__hero">
-      <span className="wordmark">aura</span>
+      <BrandLogo className="brand-logo--hero" label="aura" />
       <p>Find other friend groups to hang out with.</p>
     </div>
   );

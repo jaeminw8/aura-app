@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import FindExplainer, { hasSeenExplainer, markExplainerSeen } from '../components/FindExplainer.jsx';
 import GroupCard from '../components/GroupCard.jsx';
 import GroupSwitcher from '../components/GroupSwitcher.jsx';
+import BrandLogo from '../components/BrandLogo.jsx';
 import Icon from '../components/Icon.jsx';
 import { Loader } from '../components/Loading.jsx';
 import SwipeCard from '../components/SwipeCard.jsx';
@@ -83,7 +84,7 @@ export default function FindScreen({ me, onSwitchGroup, refreshMe, isDesktop = f
   return (
     <div className="screen screen--find">
       <header className="page-head">
-        {isDesktop ? <h1 className="page-title">Find</h1> : <span className="wordmark" aria-label="aura">aura</span>}
+        {isDesktop ? <h1 className="page-title">Find</h1> : <BrandLogo label="aura" />}
         <GroupSwitcher groups={me.groups} activeGroupId={activeGroupId} onSwitch={onSwitchGroup} />
       </header>
 

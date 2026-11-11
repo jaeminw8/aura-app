@@ -77,6 +77,8 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
   letter-spacing: -0.04em;
   line-height: 1;
 }
+.brand-logo { display: inline-flex; align-items: center; gap: 10px; color: var(--accent); font-family: var(--font-head); font-size: 40px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+.brand-logo img { width: 42px; height: 42px; border-radius: 12px; object-fit: cover; object-position: center; box-shadow: 0 4px 12px rgba(76, 25, 180, 0.2); }
 .subtle { color: var(--muted); }
 .section-label {
   font-size: 13px;
@@ -761,7 +763,8 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
 /* ---------- Onboarding ---------- */
 .gate { padding: 24px var(--gutter) 40px; }
 .gate__hero { padding: 24px 0 20px; }
-.gate__hero .wordmark { font-size: 56px; }
+.gate__hero .brand-logo--hero { font-size: 56px; }
+.gate__hero .brand-logo--hero img { width: 64px; height: 64px; border-radius: 18px; }
 .gate__hero p { color: var(--muted); font-size: 18px; margin: 10px 0 0; }
 .field-hint { margin: -6px 0 16px; }
 .auth-switch { text-align: center; color: var(--muted); margin: 18px 0 0; }
@@ -901,7 +904,8 @@ h1, h2, h3 { font-family: var(--font-head); margin: 0; letter-spacing: -0.02em; 
     background: var(--card);
     border-right: 1px solid var(--line);
   }
-  .sidebar__brand { display: inline-block; padding: 0 12px 20px; font-size: 40px; text-decoration: none; }
+  .sidebar__brand { display: inline-flex; padding: 0 12px 20px; text-decoration: none; }
+  .sidebar__brand .brand-logo { font-size: 40px; }
   .sidebar__nav { display: grid; gap: 4px; }
   .sidebar__item {
     display: flex;

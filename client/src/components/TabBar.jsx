@@ -1,4 +1,5 @@
 import Icon from './Icon.jsx';
+import BrandLogo from './BrandLogo.jsx';
 
 const TABS = [
   { id: 'find', label: 'Find', icon: 'find' },
@@ -29,7 +30,7 @@ export default function TabBar({ current, unread }) {
 export function SideNav({ current, unread, children }) {
   return (
     <aside className="sidebar">
-      <a href="#/find" className="wordmark sidebar__brand" aria-label="aura home">aura</a>
+      <a href="#/find" className="sidebar__brand" aria-label="aura home"><BrandLogo label="aura home" /></a>
       <nav className="sidebar__nav" aria-label="Main">
         {TABS.map((tab) => (
           <a key={tab.id} href={`#/${tab.id}`} className="sidebar__item" aria-current={current === tab.id ? 'page' : undefined}>
